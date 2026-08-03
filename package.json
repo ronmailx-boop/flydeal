@@ -1,0 +1,15 @@
+{
+  "name": "israeli-bank-scraper-report",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local read-only scraper for Israeli bank/credit card accounts, producing a local Hebrew RTL HTML report. Runs on-device (Termux + Alpine/Chromium), no cloud, no email.",
+  "main": "fetch-and-report.js",
+  "scripts": {
+    "start": "node fetch-and-report.js"
+  },
+  "dependencies": {
+    "dotenv": "*",
+    "israeli-bank-scrapers": "*",
+    "puppeteer-core": "*"
+  }
+}
