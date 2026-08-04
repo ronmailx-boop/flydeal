@@ -1,0 +1,10 @@
+name = "cheap-flights-agent"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[[kv_namespaces]]
+binding = "DEALS"
+id = "238c372ab71e47c0a56f32f272bc7e19"
+
+[triggers]
+crons = ["*/15 * * * *"]
