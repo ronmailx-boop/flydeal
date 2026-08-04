@@ -104,7 +104,9 @@ async function renderPage(env, maxPrice) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
   const deals = allDeals.filter((d) => d.price <= maxPrice);
-  const updatedAt = stored && stored.updatedAt ? new Date(stored.updatedAt).toLocaleString('he-IL') : 'טרם עודכן';
+  const updatedAt = stored && stored.updatedAt
+    ? new Date(stored.updatedAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
+    : 'טרם עודכן';
   const error = stored && stored.error;
 
   const presetLinks = PRICE_PRESETS.map((p) =>
