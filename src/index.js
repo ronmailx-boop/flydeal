@@ -111,10 +111,13 @@ async function renderPage(env, maxPrice) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>טיסות זולות מישראל</title>
+<title>FlyDeal - טיסות זולות מישראל</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iRmx5RGVhbCBsb2dvIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzBlYTVlOSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMyMmM1NWUiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEyIiBmaWxsPSJ1cmwoI2JnKSIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMuNiwzLjYpIHNjYWxlKDAuNykiPgogICAgPHBhdGggZD0iTTIuMDEsMjFMMjMsMTJMMi4wMSwzTDIsMTBsMTUsMmwtMTUsMkwyLjAxLDIxeiIgZmlsbD0iI2ZmZmZmZiIvPgogIDwvZz4KPC9zdmc+Cg==">
 <style>
   body { font-family: system-ui, sans-serif; background:#f5f5f7; margin:0; padding:16px; color:#1c1c1e; }
-  h1 { font-size:1.3em; }
+  header { display:flex; align-items:center; gap:10px; }
+  header svg { width:40px; height:40px; flex-shrink:0; }
+  h1 { font-size:1.3em; margin:0; }
   .meta { color:#666; font-size:0.9em; margin-bottom:8px; }
   .presets { margin-bottom:16px; }
   .presets a { color:#0066cc; text-decoration:none; }
@@ -127,7 +130,21 @@ async function renderPage(env, maxPrice) {
 </style>
 </head>
 <body>
-  <h1>טיסות זולות מ-TLV (עד $${maxPrice} לנוסע)</h1>
+  <header>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="FlyDeal">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0ea5e9"/>
+          <stop offset="100%" stop-color="#22c55e"/>
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="12" fill="url(#bg)"/>
+      <g transform="translate(3.6,3.6) scale(0.7)">
+        <path d="M2.01,21L23,12L2.01,3L2,10l15,2l-15,2L2.01,21z" fill="#ffffff"/>
+      </g>
+    </svg>
+    <h1>FlyDeal - טיסות זולות מ-TLV (עד $${maxPrice} לנוסע)</h1>
+  </header>
   <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
   ${error ? `<div class="error">שגיאה בסריקה האחרונה: ${esc(error)} (הרשימה למטה מהסריקה המוצלחת הקודמת אם קיימת)</div>` : ''}

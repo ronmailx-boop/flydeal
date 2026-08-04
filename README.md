@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" width="80" height="80" alt="FlyDeal logo">
+
 # FlyDeal — טיסות זולות מישראל
 
 אתר שסורק אוטומטית כל 15 דקות טיסות זולות (עד 100$ לנוסע, כברירת מחדל)
