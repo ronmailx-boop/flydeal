@@ -5,7 +5,11 @@ const ICON_512_MASKABLE_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAIAAAB7GkOtAAAQA
 function pngResponse(b64) {
   const binary = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
   return new Response(binary, {
-    headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' },
+    headers: {
+      'content-type': 'image/png',
+      'cache-control': 'public, max-age=604800',
+      'access-control-allow-origin': '*',
+    },
   });
 }
 
@@ -194,7 +198,9 @@ export default {
       return new Response('scan complete, see /', { status: 200 });
     }
     if (url.pathname === '/manifest.webmanifest') {
-      return new Response(MANIFEST, { headers: { 'content-type': 'application/manifest+json' } });
+      return new Response(MANIFEST, {
+        headers: { 'content-type': 'application/manifest+json', 'access-control-allow-origin': '*' },
+      });
     }
     if (url.pathname === '/icon-192.png') return pngResponse(ICON_192_B64);
     if (url.pathname === '/icon-512.png') return pngResponse(ICON_512_B64);
