@@ -1,6 +1,7 @@
 const TRAVELPAYOUTS_URL = 'https://api.travelpayouts.com/v1/prices/cheap';
 const ORIGIN = 'TLV';
-const MAX_PRICE = 100;
+const DEFAULT_MAX_PRICE = 100;
+const PRICE_PRESETS = [50, 100, 150, 200, 300];
 const KV_KEY = 'latest';
 
 async function fetchCheapFlights(token) {
@@ -26,7 +27,7 @@ function extractDeals(data) {
   const deals = [];
   for (const [destination, entries] of Object.entries(data)) {
     for (const entry of Object.values(entries || {})) {
-      if (typeof entry.price === 'number' && entry.price <= MAX_PRICE) {
+      if (typeof entry.price === 'number') {
         deals.push({
           destination,
           price: entry.price,
@@ -70,11 +71,16 @@ function formatDate(iso) {
   return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
 }
 
-async function renderPage(env) {
+async function renderPage(env, maxPrice) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
-  const deals = (stored && stored.deals) || [];
+  const allDeals = (stored && stored.deals) || [];
+  const deals = allDeals.filter((d) => d.price <= maxPrice);
   const updatedAt = stored && stored.updatedAt ? new Date(stored.updatedAt).toLocaleString('he-IL') : 'טרם עודכן';
   const error = stored && stored.error;
+
+  const presetLinks = PRICE_PRESETS.map((p) =>
+    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}">$${p}</a>`
+  ).join(' | ');
 
   const rows = deals
     .map(
@@ -98,7 +104,7 @@ async function renderPage(env) {
         </thead>
         <tbody>${rows}</tbody>
       </table>`
-    : '<p class="empty">אין כרגע טיסות מתחת ל-100$ מנתב"ג.</p>';
+    : `<p class="empty">אין כרגע טיסות מתחת ל-$${maxPrice} מנתב"ג.</p>`;
 
   const html = `<!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -109,7 +115,9 @@ async function renderPage(env) {
 <style>
   body { font-family: system-ui, sans-serif; background:#f5f5f7; margin:0; padding:16px; color:#1c1c1e; }
   h1 { font-size:1.3em; }
-  .meta { color:#666; font-size:0.9em; margin-bottom:16px; }
+  .meta { color:#666; font-size:0.9em; margin-bottom:8px; }
+  .presets { margin-bottom:16px; }
+  .presets a { color:#0066cc; text-decoration:none; }
   .error { background:#ffe5e5; border:1px solid #ff3b30; color:#b30000; padding:10px; border-radius:8px; margin-bottom:16px; }
   table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
   th, td { padding:8px 10px; text-align:right; border-bottom:1px solid #eee; }
@@ -119,8 +127,9 @@ async function renderPage(env) {
 </style>
 </head>
 <body>
-  <h1>טיסות זולות מ-TLV (עד 100$ לנוסע)</h1>
+  <h1>טיסות זולות מ-TLV (עד $${maxPrice} לנוסע)</h1>
   <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
+  <p class="presets">סף מחיר: ${presetLinks}</p>
   ${error ? `<div class="error">שגיאה בסריקה האחרונה: ${esc(error)} (הרשימה למטה מהסריקה המוצלחת הקודמת אם קיימת)</div>` : ''}
   ${table}
 </body>
@@ -139,6 +148,8 @@ export default {
       await runScan(env);
       return new Response('scan complete, see /', { status: 200 });
     }
-    return renderPage(env);
+    const requested = Number(url.searchParams.get('max'));
+    const maxPrice = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 2000) : DEFAULT_MAX_PRICE;
+    return renderPage(env, maxPrice);
   },
 };
