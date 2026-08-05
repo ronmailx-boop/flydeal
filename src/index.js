@@ -118,12 +118,14 @@ async function fetchCheapFlights(token) {
 async function fetchUsdToIls() {
   try {
     const res = await fetch(FX_URL);
-    if (!res.ok) return null;
+    if (!res.ok) return { rate: null, error: `Frankfurter API HTTP ${res.status}` };
     const body = await res.json();
     const rate = body && body.rates && body.rates.ILS;
-    return typeof rate === 'number' ? rate : null;
+    return typeof rate === 'number'
+      ? { rate, error: null }
+      : { rate: null, error: `Frankfurter API unexpected response: ${JSON.stringify(body)}` };
   } catch (err) {
-    return null;
+    return { rate: null, error: String((err && err.message) || err) };
   }
 }
 
@@ -158,15 +160,16 @@ async function runScan(env, source) {
   const prev = await env.DEALS.get(KV_KEY, 'json');
   const cronRunCount = (prev && prev.cronRunCount) || 0;
   const nextCronRunCount = source === 'cron' ? cronRunCount + 1 : cronRunCount;
-  const fetchedRate = await fetchUsdToIls();
-  const usdToIls = fetchedRate || (prev && prev.usdToIls) || null;
+  const fx = await fetchUsdToIls();
+  const usdToIls = fx.rate || (prev && prev.usdToIls) || null;
+  const fxError = fx.error;
 
   try {
     const data = await fetchCheapFlights(env.TRAVELPAYOUTS_TOKEN);
     const deals = extractDeals(data);
     await env.DEALS.put(
       KV_KEY,
-      JSON.stringify({ updatedAt: now, deals, error: null, lastRunSource: source, cronRunCount: nextCronRunCount, usdToIls })
+      JSON.stringify({ updatedAt: now, deals, error: null, lastRunSource: source, cronRunCount: nextCronRunCount, usdToIls, fxError })
     );
   } catch (err) {
     await env.DEALS.put(
@@ -178,6 +181,7 @@ async function runScan(env, source) {
         lastRunSource: source,
         cronRunCount: nextCronRunCount,
         usdToIls,
+        fxError,
       })
     );
   }
@@ -374,6 +378,7 @@ async function renderPage(env, maxPrice) {
     line-height: 1;
     letter-spacing: -0.02em;
     white-space: nowrap;
+    color: #fff;
   }
   .card-greenboard .price sup { font-size: 1rem; font-weight: 700; margin-inline-end: 0.1rem; }
   .card-greenboard .price .ils { display: block; font-size: 0.85rem; font-weight: 700; opacity: 0.9; }
@@ -412,6 +417,7 @@ async function renderPage(env, maxPrice) {
   <p class="meta">מספר סריקות אוטומטיות שבוצעו עד כה: <strong>${(stored && stored.cronRunCount) || 0}</strong> - המספר הזה עולה רק מהסריקה האוטומטית (לא מ-/run הידני), כדי שתוכל לוודא שה-Cron באמת רץ לבד</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
   ${usdToIls ? `<p class="meta">שער המרה המוצג: $1 = ₪${usdToIls.toFixed(2)}</p>` : ''}
+  ${!usdToIls && stored && stored.fxError ? `<p class="meta">לא הצלחתי לעדכן שער חליפין: ${esc(stored.fxError)}</p>` : ''}
   ${error ? `<div class="error">שגיאה בסריקה האחרונה: ${esc(error)} (הרשימה למטה מהסריקה המוצלחת הקודמת אם קיימת)</div>` : ''}
   <button type="button" id="viewToggle" class="view-toggle" aria-pressed="false">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
