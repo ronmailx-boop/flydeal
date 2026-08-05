@@ -28,10 +28,79 @@ const MANIFEST = JSON.stringify({
 });
 
 const TRAVELPAYOUTS_URL = 'https://api.travelpayouts.com/v1/prices/cheap';
+const FX_URL = 'https://api.frankfurter.app/latest?from=USD&to=ILS';
 const ORIGIN = 'TLV';
 const DEFAULT_MAX_PRICE = 100;
 const PRICE_PRESETS = [50, 100, 150, 200, 300];
 const KV_KEY = 'latest';
+
+const AIRLINE_NAMES = {
+  LY: 'אל על', IZ: 'ארקיע', '6H': 'ישראייר',
+  W6: 'Wizz Air', W4: 'Wizz Air Malta', FR: 'Ryanair', U2: 'easyJet',
+  LH: 'Lufthansa', LX: 'Swiss', OS: 'Austrian Airlines', SN: 'Brussels Airlines',
+  AF: 'Air France', KL: 'KLM', BA: 'British Airways', IB: 'Iberia', VY: 'Vueling',
+  TP: 'TAP Portugal', AZ: 'ITA Airways', A3: 'Aegean Airlines', TK: 'Turkish Airlines',
+  PC: 'Pegasus Airlines', XQ: 'SunExpress', LO: 'LOT Polish Airlines', OK: 'Czech Airlines',
+  RO: 'TAROM', JU: 'Air Serbia', FB: 'Bulgaria Air', UX: 'Air Europa', SU: 'Aeroflot',
+  EK: 'Emirates', QR: 'Qatar Airways', EY: 'Etihad Airways', FZ: 'flydubai', G9: 'Air Arabia',
+  DY: 'Norwegian Air Shuttle', D8: 'Norwegian Air International', SK: 'SAS',
+  AY: 'Finnair', BT: 'airBaltic', FI: 'Icelandair', MS: 'EgyptAir', RJ: 'Royal Jordanian',
+  ME: 'Middle East Airlines', CY: 'Cyprus Airways',
+};
+
+const AIRPORT_INFO = {
+  LCA: ['קפריסין', 'לרנקה'], PFO: ['קפריסין', 'פאפוס'],
+  ATH: ['יוון', 'אתונה'], SKG: ['יוון', 'סלוניקי'], RHO: ['יוון', 'רודוס'],
+  HER: ['יוון', 'הרקליון (כרתים)'], CHQ: ['יוון', 'חניה (כרתים)'],
+  JTR: ['יוון', 'סנטוריני'], JMK: ['יוון', 'מיקונוס'], KGS: ['יוון', 'קוס'],
+  CFU: ['יוון', 'קורפו'], ZTH: ['יוון', 'זקינתוס'],
+  SOF: ['בולגריה', 'סופיה'], VAR: ['בולגריה', 'וארנה'], BOJ: ['בולגריה', 'בורגס'],
+  OTP: ['רומניה', 'בוקרשט'], CLJ: ['רומניה', "קלוז'"],
+  BUD: ['הונגריה', 'בודפשט'],
+  WAW: ['פולין', 'ורשה'], KRK: ['פולין', 'קרקוב'], GDN: ['פולין', 'גדנסק'],
+  WMI: ['פולין', 'ורשה (מודלין)'], KTW: ['פולין', 'קטוביץ'], POZ: ['פולין', 'פוזנן'],
+  WRO: ['פולין', 'ורוצלב'],
+  PRG: ["צ'כיה", 'פראג'],
+  BTS: ['סלובקיה', 'ברטיסלאבה'],
+  VIE: ['אוסטריה', 'וינה'], SZG: ['אוסטריה', 'זלצבורג'],
+  MUC: ['גרמניה', 'מינכן'], BER: ['גרמניה', 'ברלין'], FRA: ['גרמניה', 'פרנקפורט'],
+  HHN: ['גרמניה', 'פרנקפורט-האהן'], CGN: ['גרמניה', 'קלן'], DUS: ['גרמניה', 'דיסלדורף'],
+  NUE: ['גרמניה', 'נירנברג'], STR: ['גרמניה', 'שטוטגרט'], HAM: ['גרמניה', 'המבורג'],
+  FCO: ['איטליה', 'רומא'], CIA: ['איטליה', "רומא (צ'מפינו)"], MXP: ['איטליה', 'מילאנו'],
+  BGY: ['איטליה', 'מילאנו (ברגמו)'], LIN: ['איטליה', 'מילאנו (לינאטה)'], NAP: ['איטליה', 'נאפולי'],
+  VCE: ['איטליה', 'ונציה'], TSF: ['איטליה', 'ונציה (טרוויזו)'], BLQ: ['איטליה', 'בולוניה'],
+  TRN: ['איטליה', 'טורינו'], CTA: ['איטליה', 'קטניה'], PMO: ['איטליה', 'פלרמו'],
+  BRI: ['איטליה', 'בארי'], BDS: ['איטליה', 'ברינדיזי'], PSA: ['איטליה', 'פיזה'],
+  CAG: ['איטליה', 'קליארי'],
+  BCN: ['ספרד', 'ברצלונה'], MAD: ['ספרד', 'מדריד'], VLC: ['ספרד', 'ולנסיה'],
+  AGP: ['ספרד', 'מלגה'], ALC: ['ספרד', 'אליקנטה'], PMI: ['ספרד', 'פלמה דה מיורקה'],
+  IBZ: ['ספרד', 'איביזה'], SVQ: ['ספרד', 'סביליה'],
+  LIS: ['פורטוגל', 'ליסבון'], OPO: ['פורטוגל', 'פורטו'], FAO: ['פורטוגל', 'פארו'],
+  CDG: ['צרפת', 'פריז'], ORY: ['צרפת', 'פריז (אורלי)'], BVA: ['צרפת', 'פריז (בובה)'],
+  NCE: ['צרפת', 'ניס'], LYS: ['צרפת', 'ליון'], MRS: ['צרפת', 'מרסיי'],
+  ZRH: ['שוויץ', 'ציריך'], GVA: ['שוויץ', "ז'נבה"], BSL: ['שוויץ', 'בזל'],
+  BRU: ['בלגיה', 'בריסל'], CRL: ['בלגיה', "בריסל (שארלרואה)"],
+  AMS: ['הולנד', 'אמסטרדם'], EIN: ['הולנד', 'איינדהובן'],
+  LHR: ['בריטניה', 'לונדון'], LGW: ['בריטניה', 'לונדון (גטוויק)'],
+  STN: ['בריטניה', 'לונדון (סטנסטד)'], LTN: ['בריטניה', 'לונדון (לוטון)'],
+  LCY: ['בריטניה', 'לונדון (סיטי)'], MAN: ['בריטניה', "מנצ'סטר"],
+  EDI: ['בריטניה', 'אדינבורו'], BHX: ['בריטניה', 'בירמינגהאם'],
+  DUB: ['אירלנד', 'דבלין'],
+  CPH: ['דנמרק', 'קופנהגן'], OSL: ['נורווגיה', 'אוסלו'],
+  ARN: ['שוודיה', 'שטוקהולם'], NYO: ['שוודיה', 'שטוקהולם (סקאבסטה)'],
+  HEL: ['פינלנד', 'הלסינקי'],
+  RIX: ['לטביה', 'ריגה'], TLL: ['אסטוניה', 'טאלין'], VNO: ['ליטא', 'וילנה'], KUN: ['ליטא', 'קאונס'],
+  IST: ['טורקיה', 'איסטנבול'], SAW: ['טורקיה', "איסטנבול (סבייחה גוקצ'ן)"],
+  AYT: ['טורקיה', 'אנטליה'], ESB: ['טורקיה', 'אנקרה'], ADB: ['טורקיה', 'איזמיר'],
+  BJV: ['טורקיה', 'בודרום'], DLM: ['טורקיה', 'דלמן'],
+  BEG: ['סרביה', 'בלגרד'], ZAG: ['קרואטיה', 'זאגרב'], SPU: ['קרואטיה', 'ספליט'],
+  DBV: ['קרואטיה', 'דוברובניק'], PUY: ['קרואטיה', 'פולה'],
+  TIA: ['אלבניה', 'טירנה'], SKP: ['מקדוניה הצפונית', 'סקופיה'],
+  TGD: ['מונטנגרו', 'פודגוריצה'], SJJ: ['בוסניה והרצגובינה', 'סרייבו'],
+  SSH: ['מצרים', "שארם א-שייח'"], HRG: ['מצרים', 'הורגדה'], CAI: ['מצרים', 'קהיר'],
+  AMM: ['ירדן', 'עמאן'], AQJ: ['ירדן', 'עקבה'],
+  TBS: ['גאורגיה', 'טביליסי'], KUT: ['גאורגיה', 'קוטאיסי'], EVN: ['ארמניה', 'ירוואן'],
+};
 
 async function fetchCheapFlights(token) {
   const url = `${TRAVELPAYOUTS_URL}?origin=${ORIGIN}&destination=-&currency=usd&token=${encodeURIComponent(token)}`;
@@ -44,6 +113,18 @@ async function fetchCheapFlights(token) {
     throw new Error(`Travelpayouts API error: ${body.error || 'unknown'}`);
   }
   return body.data || {};
+}
+
+async function fetchUsdToIls() {
+  try {
+    const res = await fetch(FX_URL);
+    if (!res.ok) return null;
+    const body = await res.json();
+    const rate = body && body.rates && body.rates.ILS;
+    return typeof rate === 'number' ? rate : null;
+  } catch (err) {
+    return null;
+  }
 }
 
 function buildSearchLink(destination, departureAt) {
@@ -77,13 +158,15 @@ async function runScan(env, source) {
   const prev = await env.DEALS.get(KV_KEY, 'json');
   const cronRunCount = (prev && prev.cronRunCount) || 0;
   const nextCronRunCount = source === 'cron' ? cronRunCount + 1 : cronRunCount;
+  const fetchedRate = await fetchUsdToIls();
+  const usdToIls = fetchedRate || (prev && prev.usdToIls) || null;
 
   try {
     const data = await fetchCheapFlights(env.TRAVELPAYOUTS_TOKEN);
     const deals = extractDeals(data);
     await env.DEALS.put(
       KV_KEY,
-      JSON.stringify({ updatedAt: now, deals, error: null, lastRunSource: source, cronRunCount: nextCronRunCount })
+      JSON.stringify({ updatedAt: now, deals, error: null, lastRunSource: source, cronRunCount: nextCronRunCount, usdToIls })
     );
   } catch (err) {
     await env.DEALS.put(
@@ -94,6 +177,7 @@ async function runScan(env, source) {
         error: String((err && err.message) || err),
         lastRunSource: source,
         cronRunCount: nextCronRunCount,
+        usdToIls,
       })
     );
   }
@@ -120,18 +204,24 @@ async function renderPage(env, maxPrice) {
     ? new Date(stored.updatedAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
     : 'טרם עודכן';
   const error = stored && stored.error;
+  const usdToIls = stored && stored.usdToIls;
 
   const presetLinks = PRICE_PRESETS.map((p) =>
     p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}">$${p}</a>`
   ).join(' | ');
+
+  function ilsLabel(price) {
+    if (!usdToIls) return '';
+    return ` (₪${Math.round(price * usdToIls).toLocaleString('he-IL')})`;
+  }
 
   const rows = deals
     .map(
       (d) => `
         <tr>
           <td>${esc(d.destination)}</td>
-          <td class="price">$${d.price.toFixed(0)}</td>
-          <td>${esc(d.airline || '-')}</td>
+          <td class="price">$${d.price.toFixed(0)}${ilsLabel(d.price)}</td>
+          <td>${esc(AIRLINE_NAMES[d.airline] || d.airline || '-')}</td>
           <td>${formatDate(d.departureAt)}</td>
           <td>${d.returnAt ? formatDate(d.returnAt) : '-'}</td>
           <td><a href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה</a></td>
@@ -148,6 +238,34 @@ async function renderPage(env, maxPrice) {
         <tbody>${rows}</tbody>
       </table>`
     : `<p class="empty">אין כרגע טיסות מתחת ל-$${maxPrice} מנתב"ג.</p>`;
+
+  const cards = deals
+    .map((d) => {
+      const info = AIRPORT_INFO[d.destination];
+      const country = info ? info[0] : d.destination;
+      const city = info ? info[1] : '';
+      const airlineName = AIRLINE_NAMES[d.airline] || d.airline || '-';
+      return `
+        <article class="card-greenboard">
+          <span class="brand">FlyDeal</span>
+          <div class="destination">
+            <div class="country">${esc(country)}</div>
+            ${city ? `<div class="city">${esc(city)} &middot; ${esc(d.destination)}</div>` : `<div class="city">${esc(d.destination)}</div>`}
+          </div>
+          <div class="info-rows">
+            <div class="row"><span class="k">חברת תעופה</span><span class="v">${esc(airlineName)}</span></div>
+            <div class="row"><span class="k">יציאה</span><span class="v tabular">${formatDate(d.departureAt)}</span></div>
+            <div class="row"><span class="k">חזרה</span><span class="v tabular">${d.returnAt ? formatDate(d.returnAt) : '-'}</span></div>
+          </div>
+          <div class="price-cta">
+            <div class="price tabular"><sup>$</sup>${d.price.toFixed(0)}${usdToIls ? `<span class="ils">₪${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span>` : ''}</div>
+            <a class="card-link" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה &#8592;</a>
+          </div>
+        </article>`;
+    })
+    .join('');
+
+  const cardsView = deals.length ? `<div class="cards-grid">${cards}</div>` : `<p class="empty">אין כרגע טיסות מתחת ל-$${maxPrice} מנתב"ג.</p>`;
 
   const html = `<!DOCTYPE html>
 <html lang="he" dir="rtl">
@@ -173,9 +291,108 @@ async function renderPage(env, maxPrice) {
   th { background:#eef; }
   .price { color:#2e7d32; font-weight:bold; }
   .empty { color:#888; }
+
+  .view-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    appearance: none;
+    border: 1px solid #cfd8e3;
+    background: #fff;
+    color: #1c1c1e;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+    cursor: pointer;
+    margin-bottom: 16px;
+  }
+  .view-toggle:hover { background: #f0f4f8; }
+  .view-toggle svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  .cards-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+
+  .card-greenboard {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(30,25,15,0.08), 0 8px 24px -12px rgba(30,25,15,0.35);
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .card-greenboard::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 14px, rgba(255,255,255,0) 14px 28px);
+    pointer-events: none;
+  }
+  .card-greenboard .brand {
+    position: relative;
+    flex: 0 0 auto;
+    background: rgba(255,255,255,0.2);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .card-greenboard .destination { position: relative; flex: 1 1 12rem; min-width: 0; }
+  .card-greenboard .country { font-size: 1.15rem; font-weight: 800; line-height: 1.15; }
+  .card-greenboard .city { font-size: 0.78rem; opacity: 0.88; margin-top: 0.15rem; }
+  .card-greenboard .info-rows {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1 1 11rem;
+    font-family: ui-monospace, monospace;
+    font-size: 0.78rem;
+  }
+  .card-greenboard .info-rows .row { display: flex; justify-content: space-between; gap: 0.6rem; }
+  .card-greenboard .info-rows .k { opacity: 0.8; letter-spacing: 0.05em; }
+  .card-greenboard .info-rows .v { font-weight: 700; }
+  .card-greenboard .price-cta {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex: 0 0 auto;
+    margin-inline-start: auto;
+  }
+  .card-greenboard .price {
+    font-family: ui-monospace, monospace;
+    font-size: 2.1rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .card-greenboard .price sup { font-size: 1rem; font-weight: 700; margin-inline-end: 0.1rem; }
+  .card-greenboard .price .ils { display: block; font-size: 0.85rem; font-weight: 700; opacity: 0.9; }
+  .card-greenboard .card-link {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #0f766e;
+    background: #fff;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  body[data-view="table"] .cards-view { display: none; }
+  body[data-view="cards"] .table-view { display: none; }
 </style>
 </head>
-<body>
+<body data-view="table">
   <header>
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="FlyDeal">
       <defs>
@@ -194,8 +411,31 @@ async function renderPage(env, maxPrice) {
   <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} (${stored && stored.lastRunSource === 'manual' ? 'הרצה ידנית' : 'סריקה אוטומטית'}) | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
   <p class="meta">מספר סריקות אוטומטיות שבוצעו עד כה: <strong>${(stored && stored.cronRunCount) || 0}</strong> - המספר הזה עולה רק מהסריקה האוטומטית (לא מ-/run הידני), כדי שתוכל לוודא שה-Cron באמת רץ לבד</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
+  ${usdToIls ? `<p class="meta">שער המרה המוצג: $1 = ₪${usdToIls.toFixed(2)}</p>` : ''}
   ${error ? `<div class="error">שגיאה בסריקה האחרונה: ${esc(error)} (הרשימה למטה מהסריקה המוצלחת הקודמת אם קיימת)</div>` : ''}
-  ${table}
+  <button type="button" id="viewToggle" class="view-toggle" aria-pressed="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="7" height="16" rx="1.5"></rect>
+      <rect x="14" y="4" width="7" height="7" rx="1.5"></rect>
+      <rect x="14" y="14" width="7" height="6" rx="1.5"></rect>
+    </svg>
+    <span id="viewToggleLabel">תצוגת כרטיסים</span>
+  </button>
+  <div class="table-view">${table}</div>
+  <div class="cards-view">${cardsView}</div>
+  <script>
+    (function () {
+      var body = document.body;
+      var btn = document.getElementById('viewToggle');
+      var label = document.getElementById('viewToggleLabel');
+      btn.addEventListener('click', function () {
+        var showingCards = body.dataset.view === 'cards';
+        body.dataset.view = showingCards ? 'table' : 'cards';
+        label.textContent = showingCards ? 'תצוגת כרטיסים' : 'תצוגת טבלה';
+        btn.setAttribute('aria-pressed', String(!showingCards));
+      });
+    })();
+  </script>
 </body>
 </html>`;
 
