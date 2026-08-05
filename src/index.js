@@ -72,17 +72,29 @@ function extractDeals(data) {
   return deals;
 }
 
-async function runScan(env) {
+async function runScan(env, source) {
   const now = new Date().toISOString();
+  const prev = await env.DEALS.get(KV_KEY, 'json');
+  const cronRunCount = (prev && prev.cronRunCount) || 0;
+  const nextCronRunCount = source === 'cron' ? cronRunCount + 1 : cronRunCount;
+
   try {
     const data = await fetchCheapFlights(env.TRAVELPAYOUTS_TOKEN);
     const deals = extractDeals(data);
-    await env.DEALS.put(KV_KEY, JSON.stringify({ updatedAt: now, deals, error: null }));
-  } catch (err) {
-    const prev = await env.DEALS.get(KV_KEY, 'json');
     await env.DEALS.put(
       KV_KEY,
-      JSON.stringify({ updatedAt: now, deals: (prev && prev.deals) || [], error: String((err && err.message) || err) })
+      JSON.stringify({ updatedAt: now, deals, error: null, lastRunSource: source, cronRunCount: nextCronRunCount })
+    );
+  } catch (err) {
+    await env.DEALS.put(
+      KV_KEY,
+      JSON.stringify({
+        updatedAt: now,
+        deals: (prev && prev.deals) || [],
+        error: String((err && err.message) || err),
+        lastRunSource: source,
+        cronRunCount: nextCronRunCount,
+      })
     );
   }
 }
@@ -179,7 +191,8 @@ async function renderPage(env, maxPrice) {
     </svg>
     <h1>FlyDeal - טיסות זולות מ-TLV (עד $${maxPrice} לנוסע)</h1>
   </header>
-  <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
+  <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} (${stored && stored.lastRunSource === 'manual' ? 'הרצה ידנית' : 'סריקה אוטומטית'}) | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
+  <p class="meta">מספר סריקות אוטומטיות שבוצעו עד כה: <strong>${(stored && stored.cronRunCount) || 0}</strong> - המספר הזה עולה רק מהסריקה האוטומטית (לא מ-/run הידני), כדי שתוכל לוודא שה-Cron באמת רץ לבד</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
   ${error ? `<div class="error">שגיאה בסריקה האחרונה: ${esc(error)} (הרשימה למטה מהסריקה המוצלחת הקודמת אם קיימת)</div>` : ''}
   ${table}
@@ -191,12 +204,12 @@ async function renderPage(env, maxPrice) {
 
 export default {
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runScan(env));
+    ctx.waitUntil(runScan(env, 'cron'));
   },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === '/run') {
-      await runScan(env);
+      await runScan(env, 'manual');
       return new Response('scan complete, see /', { status: 200 });
     }
     if (url.pathname === '/manifest.webmanifest') {
