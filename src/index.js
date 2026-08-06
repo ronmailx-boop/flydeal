@@ -282,28 +282,78 @@ async function renderPage(env, maxPrice) {
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJvbGU9ImltZyIgYXJpYS1sYWJlbD0iRmx5RGVhbCBsb2dvIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4KICAgICAgPHN0b3Agb2Zmc2V0PSIwJSIgc3RvcC1jb2xvcj0iIzBlYTVlOSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMyMmM1NWUiLz4KICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgPC9kZWZzPgogIDxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEyIiBmaWxsPSJ1cmwoI2JnKSIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMuNiwzLjYpIHNjYWxlKDAuNykiPgogICAgPHBhdGggZD0iTTIuMDEsMjFMMjMsMTJMMi4wMSwzTDIsMTBsMTUsMmwtMTUsMkwyLjAxLDIxeiIgZmlsbD0iI2ZmZmZmZiIvPgogIDwvZz4KPC9zdmc+Cg==">
 <style>
-  body { font-family: system-ui, sans-serif; background:#f5f5f7; margin:0; padding:16px; color:#1c1c1e; }
+  :root {
+    --bg: #f5f5f7;
+    --ink: #1c1c1e;
+    --ink-soft: #666;
+    --link: #0066cc;
+    --surface: #fff;
+    --surface-2: #eef;
+    --border: #eee;
+    --price: #2e7d32;
+    --toggle-border: #cfd8e3;
+    --toggle-bg: #fff;
+    --toggle-hover: #f0f4f8;
+    --error-bg: #ffe5e5;
+    --error-border: #ff3b30;
+    --error-ink: #b30000;
+    --card-bg: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
+    --card-border: none;
+    --card-stripe: rgba(255,255,255,0.06);
+    --card-brand-bg: rgba(255,255,255,0.2);
+    --card-city-opacity: 0.88;
+    --card-k-opacity: 0.8;
+    --card-link-color: #0f766e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #262624;
+      --ink: #faf9f5;
+      --ink-soft: #a8a29e;
+      --link: #38bdf8;
+      --surface: #2f2e2c;
+      --surface-2: #3a3936;
+      --border: rgba(250,249,245,0.09);
+      --price: #4ade80;
+      --toggle-border: rgba(250,249,245,0.09);
+      --toggle-bg: #2f2e2c;
+      --toggle-hover: #3a3936;
+      --error-bg: #3a2422;
+      --error-border: #8a3b34;
+      --error-ink: #ffb4a8;
+      --card-bg: #302f2c;
+      --card-border: 1px solid rgba(255,255,255,0.55);
+      --card-stripe: transparent;
+      --card-brand-bg: rgba(255,255,255,0.14);
+      --card-city-opacity: 0.78;
+      --card-k-opacity: 0.65;
+      --card-link-color: #1c1c1a;
+    }
+  }
+
+  body { font-family: system-ui, sans-serif; background:var(--bg); margin:0; padding:16px; color:var(--ink); }
   header { display:flex; align-items:center; gap:10px; }
   header svg { width:40px; height:40px; flex-shrink:0; }
   h1 { font-size:1.3em; margin:0; }
-  .meta { color:#666; font-size:0.9em; margin-bottom:8px; }
+  .meta { color:var(--ink-soft); font-size:0.9em; margin-bottom:8px; }
   .presets { margin-bottom:16px; }
-  .presets a { color:#0066cc; text-decoration:none; }
-  .error { background:#ffe5e5; border:1px solid #ff3b30; color:#b30000; padding:10px; border-radius:8px; margin-bottom:16px; }
-  table { width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; }
-  th, td { padding:8px 10px; text-align:right; border-bottom:1px solid #eee; }
-  th { background:#eef; }
-  .price { color:#2e7d32; font-weight:bold; }
-  .empty { color:#888; }
+  .presets a { color:var(--link); text-decoration:none; }
+  .error { background:var(--error-bg); border:1px solid var(--error-border); color:var(--error-ink); padding:10px; border-radius:8px; margin-bottom:16px; }
+  table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:10px; overflow:hidden; }
+  th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--border); }
+  th { background:var(--surface-2); }
+  td a { color: var(--link); }
+  .price { color:var(--price); font-weight:bold; }
+  .empty { color:var(--ink-soft); }
 
   .view-toggle {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
     appearance: none;
-    border: 1px solid #cfd8e3;
-    background: #fff;
-    color: #1c1c1e;
+    border: 1px solid var(--toggle-border);
+    background: var(--toggle-bg);
+    color: var(--ink);
     font: inherit;
     font-size: 0.85rem;
     font-weight: 600;
@@ -312,7 +362,7 @@ async function renderPage(env, maxPrice) {
     cursor: pointer;
     margin-bottom: 16px;
   }
-  .view-toggle:hover { background: #f0f4f8; }
+  .view-toggle:hover { background: var(--toggle-hover); }
   .view-toggle svg { width: 16px; height: 16px; flex-shrink: 0; }
 
   .cards-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
@@ -321,7 +371,8 @@ async function renderPage(env, maxPrice) {
     position: relative;
     border-radius: 16px;
     overflow: hidden;
-    background: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
+    background: var(--card-bg);
+    border: var(--card-border);
     color: #fff;
     box-shadow: 0 1px 2px rgba(30,25,15,0.08), 0 8px 24px -12px rgba(30,25,15,0.35);
     padding: 1.1rem 1.5rem;
@@ -334,13 +385,13 @@ async function renderPage(env, maxPrice) {
     content: "";
     position: absolute;
     inset: 0;
-    background: repeating-linear-gradient(-45deg, rgba(255,255,255,0.06) 0 14px, rgba(255,255,255,0) 14px 28px);
+    background: repeating-linear-gradient(-45deg, var(--card-stripe) 0 14px, rgba(255,255,255,0) 14px 28px);
     pointer-events: none;
   }
   .card-greenboard .brand {
     position: relative;
     flex: 0 0 auto;
-    background: rgba(255,255,255,0.2);
+    background: var(--card-brand-bg);
     font-size: 0.7rem;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -350,7 +401,7 @@ async function renderPage(env, maxPrice) {
   }
   .card-greenboard .destination { position: relative; flex: 1 1 12rem; min-width: 0; }
   .card-greenboard .country { font-size: 1.15rem; font-weight: 800; line-height: 1.15; }
-  .card-greenboard .city { font-size: 0.78rem; opacity: 0.88; margin-top: 0.15rem; }
+  .card-greenboard .city { font-size: 0.78rem; opacity: var(--card-city-opacity); margin-top: 0.15rem; }
   .card-greenboard .info-rows {
     position: relative;
     display: flex;
@@ -361,7 +412,7 @@ async function renderPage(env, maxPrice) {
     font-size: 0.78rem;
   }
   .card-greenboard .info-rows .row { display: flex; justify-content: space-between; gap: 0.6rem; }
-  .card-greenboard .info-rows .k { opacity: 0.8; letter-spacing: 0.05em; }
+  .card-greenboard .info-rows .k { opacity: var(--card-k-opacity); letter-spacing: 0.05em; }
   .card-greenboard .info-rows .v { font-weight: 700; }
   .card-greenboard .price-cta {
     position: relative;
@@ -385,7 +436,7 @@ async function renderPage(env, maxPrice) {
   .card-greenboard .card-link {
     font-size: 0.78rem;
     font-weight: 800;
-    color: #0f766e;
+    color: var(--card-link-color);
     background: #fff;
     padding: 0.45rem 0.9rem;
     border-radius: 999px;
@@ -397,7 +448,7 @@ async function renderPage(env, maxPrice) {
   body[data-view="cards"] .table-view { display: none; }
 </style>
 </head>
-<body data-view="table">
+<body data-view="cards">
   <header>
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="FlyDeal">
       <defs>
@@ -419,13 +470,13 @@ async function renderPage(env, maxPrice) {
   ${usdToIls ? `<p class="meta">שער המרה המוצג: $1 = ₪${usdToIls.toFixed(2)}</p>` : ''}
   ${!usdToIls && stored && stored.fxError ? `<p class="meta">לא הצלחתי לעדכן שער חליפין: ${esc(stored.fxError)}</p>` : ''}
   ${error ? `<div class="error">שגיאה בסריקה האחרונה: ${esc(error)} (הרשימה למטה מהסריקה המוצלחת הקודמת אם קיימת)</div>` : ''}
-  <button type="button" id="viewToggle" class="view-toggle" aria-pressed="false">
+  <button type="button" id="viewToggle" class="view-toggle" aria-pressed="true">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <rect x="3" y="4" width="7" height="16" rx="1.5"></rect>
       <rect x="14" y="4" width="7" height="7" rx="1.5"></rect>
       <rect x="14" y="14" width="7" height="6" rx="1.5"></rect>
     </svg>
-    <span id="viewToggleLabel">תצוגת כרטיסים</span>
+    <span id="viewToggleLabel">תצוגת טבלה</span>
   </button>
   <div class="table-view">${table}</div>
   <div class="cards-view">${cardsView}</div>
