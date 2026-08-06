@@ -200,6 +200,17 @@ function formatDate(iso) {
   return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
 }
 
+function nightsBetween(departureAt, returnAt) {
+  if (!departureAt || !returnAt) return null;
+  const d1 = new Date(departureAt);
+  const d2 = new Date(returnAt);
+  if (Number.isNaN(d1.getTime()) || Number.isNaN(d2.getTime())) return null;
+  const day1 = new Date(d1.getFullYear(), d1.getMonth(), d1.getDate());
+  const day2 = new Date(d2.getFullYear(), d2.getMonth(), d2.getDate());
+  const nights = Math.round((day2 - day1) / 86400000);
+  return nights >= 0 ? nights : null;
+}
+
 async function renderPage(env, maxPrice) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
@@ -228,6 +239,7 @@ async function renderPage(env, maxPrice) {
           <td>${esc(AIRLINE_NAMES[d.airline] || d.airline || '-')}</td>
           <td>${formatDate(d.departureAt)}</td>
           <td>${d.returnAt ? formatDate(d.returnAt) : '-'}</td>
+          <td>${nightsBetween(d.departureAt, d.returnAt) ?? '-'}</td>
           <td><a href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה</a></td>
         </tr>`
     )
@@ -237,7 +249,7 @@ async function renderPage(env, maxPrice) {
     ? `
       <table>
         <thead>
-          <tr><th>יעד</th><th>מחיר</th><th>חברת תעופה</th><th>יציאה</th><th>חזור</th><th>קישור</th></tr>
+          <tr><th>יעד</th><th>מחיר</th><th>חברת תעופה</th><th>יציאה</th><th>חזור</th><th>לילות</th><th>קישור</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>`
@@ -260,6 +272,7 @@ async function renderPage(env, maxPrice) {
             <div class="row"><span class="k">חברת תעופה</span><span class="v">${esc(airlineName)}</span></div>
             <div class="row"><span class="k">יציאה</span><span class="v tabular">${formatDate(d.departureAt)}</span></div>
             <div class="row"><span class="k">חזרה</span><span class="v tabular">${d.returnAt ? formatDate(d.returnAt) : '-'}</span></div>
+            <div class="row"><span class="k">לילות</span><span class="v tabular">${nightsBetween(d.departureAt, d.returnAt) ?? '-'}</span></div>
           </div>
           <div class="price-cta">
             <div class="price tabular"><sup>$</sup>${d.price.toFixed(0)}${usdToIls ? `<span class="ils">₪${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span>` : ''}</div>
