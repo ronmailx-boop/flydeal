@@ -227,6 +227,13 @@ function daysRangeLabel(departureAt, returnAt) {
   return `ימים ${d1} עד ${d2}`;
 }
 
+const CARD_ICONS = {
+  week: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M7 14h.01"></path><path d="M12 14h.01"></path><path d="M17 14h.01"></path></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg>',
+  moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>',
+  plane: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12l19-9-6 9 6 9-19-9z"></path><path d="M2 12h13"></path></svg>',
+};
+
 async function renderPage(env, maxPrice) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
@@ -279,23 +286,25 @@ async function renderPage(env, maxPrice) {
       const airlineName = AIRLINE_NAMES[d.airline] || d.airline || '-';
       const nights = nightsBetween(d.departureAt, d.returnAt);
       const daysLabel = daysRangeLabel(d.departureAt, d.returnAt);
+      const datesText = d.returnAt ? `${formatDate(d.departureAt)} &larr; ${formatDate(d.returnAt)}` : formatDate(d.departureAt);
       return `
-        <article class="card-greenboard">
-          <span class="brand">FlyDeal</span>
-          <div class="destination">
-            <div class="country">${esc(country)}</div>
-            ${city ? `<div class="city">${esc(city)} &middot; ${esc(d.destination)}</div>` : `<div class="city">${esc(d.destination)}</div>`}
+        <article class="card-list">
+          <div class="head">
+            <div class="dest">
+              <div class="country">${esc(country)}</div>
+              ${city ? `<div class="city">${esc(city)} &middot; ${esc(d.destination)}</div>` : `<div class="city">${esc(d.destination)}</div>`}
+            </div>
+            <span class="brand">FlyDeal</span>
           </div>
-          <div class="info-rows">
-            ${daysLabel ? `<div class="row solo"><span class="v">${esc(daysLabel)}</span></div>` : ''}
-            <div class="row"><span class="k">חברת תעופה</span><span class="v">${esc(airlineName)}</span></div>
-            <div class="row"><span class="k">יציאה</span><span class="v tabular">${formatDate(d.departureAt)}</span></div>
-            <div class="row"><span class="k">חזרה</span><span class="v tabular">${d.returnAt ? formatDate(d.returnAt) : '-'}</span></div>
-            <div class="row solo"><span class="v tabular">${nights !== null ? `${nights} לילות` : '-'}</span></div>
+          <div class="rows">
+            ${daysLabel ? `<div class="item">${CARD_ICONS.week}<span>${esc(daysLabel)}</span></div>` : ''}
+            <div class="item">${CARD_ICONS.calendar}<span class="tabular">${datesText}</span></div>
+            <div class="item">${CARD_ICONS.moon}<span>${nights !== null ? `<b class="tabular">${nights}</b> לילות` : '-'}</span></div>
+            <div class="item">${CARD_ICONS.plane}<span>${esc(airlineName)}</span></div>
           </div>
           <div class="price-cta">
-            <div class="price tabular"><sup>$</sup>${d.price.toFixed(0)}${usdToIls ? `<span class="ils">₪${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span>` : ''}</div>
             <a class="card-link" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה &#8592;</a>
+            <div class="price tabular"><sup>$</sup>${d.price.toFixed(0)}${usdToIls ? `<span class="ils">₪${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span>` : ''}</div>
           </div>
         </article>`;
     })
@@ -331,11 +340,61 @@ async function renderPage(env, maxPrice) {
     --error-ink: #b30000;
     --card-bg: linear-gradient(135deg, #0ea5e9 0%, #22c55e 100%);
     --card-border: none;
-    --card-stripe: rgba(255,255,255,0.06);
     --card-brand-bg: rgba(255,255,255,0.2);
     --card-city-opacity: 0.88;
-    --card-k-opacity: 0.8;
     --card-link-color: #0f766e;
+    --card-icon: rgba(255,255,255,0.9);
+
+    --fs-brand: 0.68rem;
+    --fs-country: 1.1rem;
+    --fs-city: 0.78rem;
+    --fs-item: 0.85rem;
+    --fs-icon: 16px;
+    --fs-price: 1.9rem;
+    --fs-price-sup: 0.95rem;
+    --fs-ils: 0.82rem;
+    --fs-cta: 0.8rem;
+    --card-pad: 1.15rem 1.3rem;
+    --row-gap: 0.55rem;
+  }
+  body[data-textsize="m"] {
+    --fs-brand: 0.74rem;
+    --fs-country: 1.25rem;
+    --fs-city: 0.88rem;
+    --fs-item: 0.98rem;
+    --fs-icon: 18px;
+    --fs-price: 2.2rem;
+    --fs-price-sup: 1.05rem;
+    --fs-ils: 0.92rem;
+    --fs-cta: 0.9rem;
+    --card-pad: 1.3rem 1.45rem;
+    --row-gap: 0.65rem;
+  }
+  body[data-textsize="l"] {
+    --fs-brand: 0.8rem;
+    --fs-country: 1.45rem;
+    --fs-city: 1rem;
+    --fs-item: 1.1rem;
+    --fs-icon: 20px;
+    --fs-price: 2.5rem;
+    --fs-price-sup: 1.2rem;
+    --fs-ils: 1rem;
+    --fs-cta: 1rem;
+    --card-pad: 1.4rem 1.55rem;
+    --row-gap: 0.75rem;
+  }
+  body[data-textsize="xl"] {
+    --fs-brand: 0.88rem;
+    --fs-country: 1.7rem;
+    --fs-city: 1.15rem;
+    --fs-item: 1.25rem;
+    --fs-icon: 23px;
+    --fs-price: 2.9rem;
+    --fs-price-sup: 1.35rem;
+    --fs-ils: 1.12rem;
+    --fs-cta: 1.1rem;
+    --card-pad: 1.55rem 1.65rem;
+    --row-gap: 0.9rem;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -355,11 +414,10 @@ async function renderPage(env, maxPrice) {
       --error-ink: #ffb4a8;
       --card-bg: #302f2c;
       --card-border: 1px solid rgba(255,255,255,0.55);
-      --card-stripe: transparent;
       --card-brand-bg: rgba(255,255,255,0.14);
       --card-city-opacity: 0.78;
-      --card-k-opacity: 0.65;
       --card-link-color: #1c1c1a;
+      --card-icon: #38bdf8;
     }
   }
 
@@ -397,81 +455,73 @@ async function renderPage(env, maxPrice) {
   .view-toggle:hover { background: var(--toggle-hover); }
   .view-toggle svg { width: 16px; height: 16px; flex-shrink: 0; }
 
+  .icon-btn {
+    appearance: none;
+    border: 1px solid var(--toggle-border);
+    background: var(--toggle-bg);
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    cursor: pointer;
+    margin-inline-start: 0.4rem;
+  }
+  .icon-btn:hover { background: var(--toggle-hover); color: var(--ink); }
+
   .cards-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 
-  .card-greenboard {
-    position: relative;
+  .card-list {
     border-radius: 16px;
-    overflow: hidden;
     background: var(--card-bg);
     border: var(--card-border);
     color: #fff;
     box-shadow: 0 1px 2px rgba(30,25,15,0.08), 0 8px 24px -12px rgba(30,25,15,0.35);
-    padding: 1.1rem 1.5rem;
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-    flex-wrap: wrap;
+    padding: var(--card-pad);
   }
-  .card-greenboard::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(-45deg, var(--card-stripe) 0 14px, rgba(255,255,255,0) 14px 28px);
-    pointer-events: none;
-  }
-  .card-greenboard .brand {
-    position: relative;
-    flex: 0 0 auto;
+  .card-list .head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.9rem; }
+  .card-list .brand {
     background: var(--card-brand-bg);
-    font-size: 0.7rem;
+    font-size: var(--fs-brand);
     font-weight: 800;
     letter-spacing: 0.04em;
     padding: 0.3rem 0.7rem;
     border-radius: 999px;
     white-space: nowrap;
   }
-  .card-greenboard .destination { position: relative; flex: 1 1 12rem; min-width: 0; }
-  .card-greenboard .country { font-size: 1.15rem; font-weight: 800; line-height: 1.15; }
-  .card-greenboard .city { font-size: 0.78rem; opacity: var(--card-city-opacity); margin-top: 0.15rem; }
-  .card-greenboard .info-rows {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    flex: 1 1 11rem;
-    font-family: ui-monospace, monospace;
-    font-size: 0.78rem;
-  }
-  .card-greenboard .info-rows .row { display: flex; justify-content: space-between; gap: 0.6rem; }
-  .card-greenboard .info-rows .row.solo { justify-content: flex-end; }
-  .card-greenboard .info-rows .k { opacity: var(--card-k-opacity); letter-spacing: 0.05em; }
-  .card-greenboard .info-rows .v { font-weight: 700; }
-  .card-greenboard .price-cta {
-    position: relative;
+  .card-list .dest .country { font-size: var(--fs-country); font-weight: 800; line-height: 1.15; }
+  .card-list .dest .city { font-size: var(--fs-city); opacity: var(--card-city-opacity); margin-top: 0.15rem; }
+
+  .card-list .rows { display: flex; flex-direction: column; gap: var(--row-gap); margin-bottom: 1.05rem; }
+  .card-list .item { display: flex; align-items: center; gap: 0.6rem; font-size: var(--fs-item); }
+  .card-list .item svg { width: var(--fs-icon); height: var(--fs-icon); flex-shrink: 0; color: var(--card-icon); }
+  .card-list .item b { font-weight: 700; }
+
+  .card-list .price-cta {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 1rem;
-    flex: 0 0 auto;
-    margin-inline-start: auto;
   }
-  .card-greenboard .price {
+  .card-list .price {
     font-family: ui-monospace, monospace;
-    font-size: 2.1rem;
+    font-size: var(--fs-price);
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.02em;
     white-space: nowrap;
     color: #fff;
   }
-  .card-greenboard .price sup { font-size: 1rem; font-weight: 700; margin-inline-end: 0.1rem; }
-  .card-greenboard .price .ils { display: block; font-size: 0.85rem; font-weight: 700; opacity: 0.9; }
-  .card-greenboard .card-link {
-    font-size: 0.78rem;
+  .card-list .price sup { font-size: var(--fs-price-sup); font-weight: 700; margin-inline-end: 0.1rem; }
+  .card-list .price .ils { display: block; font-size: var(--fs-ils); font-weight: 700; opacity: 0.9; }
+  .card-list .card-link {
+    font-size: var(--fs-cta);
     font-weight: 800;
     color: var(--card-link-color);
     background: #fff;
-    padding: 0.45rem 0.9rem;
+    padding: 0.5rem 1rem;
     border-radius: 999px;
     text-decoration: none;
     white-space: nowrap;
@@ -511,6 +561,7 @@ async function renderPage(env, maxPrice) {
     </svg>
     <span id="viewToggleLabel">תצוגת טבלה</span>
   </button>
+  <button type="button" id="textSizeBtn" class="icon-btn" aria-label="שנה גודל טקסט בכרטיסים" title="שנה גודל טקסט בכרטיסים">Aa</button>
   <div class="table-view">${table}</div>
   <div class="cards-view">${cardsView}</div>
   <script>
@@ -523,6 +574,26 @@ async function renderPage(env, maxPrice) {
         body.dataset.view = showingCards ? 'table' : 'cards';
         label.textContent = showingCards ? 'תצוגת כרטיסים' : 'תצוגת טבלה';
         btn.setAttribute('aria-pressed', String(!showingCards));
+      });
+    })();
+    (function () {
+      var sizes = ['original', 'm', 'l', 'xl'];
+      var key = 'flydeal-textsize';
+      var body = document.body;
+      var btn = document.getElementById('textSizeBtn');
+      var saved = localStorage.getItem(key);
+      if (saved && sizes.indexOf(saved) !== -1 && saved !== 'original') {
+        body.dataset.textsize = saved;
+      }
+      btn.addEventListener('click', function () {
+        var current = sizes.indexOf(body.dataset.textsize || 'original');
+        var next = sizes[(current + 1) % sizes.length];
+        if (next === 'original') {
+          delete body.dataset.textsize;
+        } else {
+          body.dataset.textsize = next;
+        }
+        localStorage.setItem(key, next);
       });
     })();
   </script>
