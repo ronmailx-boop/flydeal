@@ -211,6 +211,22 @@ function nightsBetween(departureAt, returnAt) {
   return nights >= 0 ? nights : null;
 }
 
+const HEBREW_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+function hebrewDayName(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return HEBREW_DAY_NAMES[d.getDay()];
+}
+
+function daysRangeLabel(departureAt, returnAt) {
+  const d1 = hebrewDayName(departureAt);
+  const d2 = hebrewDayName(returnAt);
+  if (!d1 || !d2) return null;
+  return `ימים ${d1} עד ${d2}`;
+}
+
 async function renderPage(env, maxPrice) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
@@ -262,6 +278,7 @@ async function renderPage(env, maxPrice) {
       const city = info ? info[1] : '';
       const airlineName = AIRLINE_NAMES[d.airline] || d.airline || '-';
       const nights = nightsBetween(d.departureAt, d.returnAt);
+      const daysLabel = daysRangeLabel(d.departureAt, d.returnAt);
       return `
         <article class="card-greenboard">
           <span class="brand">FlyDeal</span>
@@ -270,10 +287,11 @@ async function renderPage(env, maxPrice) {
             ${city ? `<div class="city">${esc(city)} &middot; ${esc(d.destination)}</div>` : `<div class="city">${esc(d.destination)}</div>`}
           </div>
           <div class="info-rows">
+            ${daysLabel ? `<div class="row solo"><span class="v">${esc(daysLabel)}</span></div>` : ''}
             <div class="row"><span class="k">חברת תעופה</span><span class="v">${esc(airlineName)}</span></div>
             <div class="row"><span class="k">יציאה</span><span class="v tabular">${formatDate(d.departureAt)}</span></div>
             <div class="row"><span class="k">חזרה</span><span class="v tabular">${d.returnAt ? formatDate(d.returnAt) : '-'}</span></div>
-            <div class="row nights"><span class="v tabular">${nights !== null ? `${nights} לילות` : '-'}</span></div>
+            <div class="row solo"><span class="v tabular">${nights !== null ? `${nights} לילות` : '-'}</span></div>
           </div>
           <div class="price-cta">
             <div class="price tabular"><sup>$</sup>${d.price.toFixed(0)}${usdToIls ? `<span class="ils">₪${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span>` : ''}</div>
@@ -426,7 +444,7 @@ async function renderPage(env, maxPrice) {
     font-size: 0.78rem;
   }
   .card-greenboard .info-rows .row { display: flex; justify-content: space-between; gap: 0.6rem; }
-  .card-greenboard .info-rows .row.nights { justify-content: flex-end; }
+  .card-greenboard .info-rows .row.solo { justify-content: flex-end; }
   .card-greenboard .info-rows .k { opacity: var(--card-k-opacity); letter-spacing: 0.05em; }
   .card-greenboard .info-rows .v { font-weight: 700; }
   .card-greenboard .price-cta {
