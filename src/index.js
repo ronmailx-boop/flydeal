@@ -261,6 +261,7 @@ async function renderPage(env, maxPrice) {
       const country = info ? info[0] : d.destination;
       const city = info ? info[1] : '';
       const airlineName = AIRLINE_NAMES[d.airline] || d.airline || '-';
+      const nights = nightsBetween(d.departureAt, d.returnAt);
       return `
         <article class="card-greenboard">
           <span class="brand">FlyDeal</span>
@@ -272,7 +273,7 @@ async function renderPage(env, maxPrice) {
             <div class="row"><span class="k">חברת תעופה</span><span class="v">${esc(airlineName)}</span></div>
             <div class="row"><span class="k">יציאה</span><span class="v tabular">${formatDate(d.departureAt)}</span></div>
             <div class="row"><span class="k">חזרה</span><span class="v tabular">${d.returnAt ? formatDate(d.returnAt) : '-'}</span></div>
-            <div class="row"><span class="k">לילות</span><span class="v tabular">${nightsBetween(d.departureAt, d.returnAt) ?? '-'}</span></div>
+            <div class="row nights"><span class="v tabular">${nights !== null ? `${nights} לילות` : '-'}</span></div>
           </div>
           <div class="price-cta">
             <div class="price tabular"><sup>$</sup>${d.price.toFixed(0)}${usdToIls ? `<span class="ils">₪${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span>` : ''}</div>
