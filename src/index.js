@@ -719,6 +719,26 @@ export default {
       await runScan(env, 'manual');
       return new Response('scan complete, see /', { status: 200 });
     }
+    if (url.pathname === '/debug-raw') {
+      try {
+        const data = await fetchCheapFlights(env.TRAVELPAYOUTS_TOKEN);
+        const sample = {};
+        let count = 0;
+        for (const [destination, entries] of Object.entries(data)) {
+          for (const entry of Object.values(entries || {})) {
+            sample[destination] = entry;
+            count++;
+            break;
+          }
+          if (count >= 3) break;
+        }
+        return new Response(JSON.stringify(sample, null, 2), {
+          headers: { 'content-type': 'application/json; charset=UTF-8' },
+        });
+      } catch (err) {
+        return new Response(`Error: ${String((err && err.message) || err)}`, { status: 500 });
+      }
+    }
     if (url.pathname === '/manifest.webmanifest') {
       return new Response(MANIFEST, {
         headers: { 'content-type': 'application/manifest+json', 'access-control-allow-origin': '*' },
