@@ -426,6 +426,7 @@ async function renderPage(env, maxPrice) {
     font-size: 0.78rem;
   }
   .card-greenboard .info-rows .row { display: flex; justify-content: space-between; gap: 0.6rem; }
+  .card-greenboard .info-rows .row.nights { justify-content: flex-end; }
   .card-greenboard .info-rows .k { opacity: var(--card-k-opacity); letter-spacing: 0.05em; }
   .card-greenboard .info-rows .v { font-weight: 700; }
   .card-greenboard .price-cta {
