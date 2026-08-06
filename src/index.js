@@ -135,6 +135,14 @@ function buildSearchLink(destination, departureAt) {
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
 }
 
+function isDirectFlight(entry) {
+  if (typeof entry.transfers !== 'number') return null;
+  if (entry.return_at && typeof entry.return_transfers === 'number') {
+    return entry.transfers === 0 && entry.return_transfers === 0;
+  }
+  return entry.transfers === 0;
+}
+
 function extractDeals(data) {
   const deals = [];
   for (const [destination, entries] of Object.entries(data)) {
@@ -146,6 +154,7 @@ function extractDeals(data) {
           airline: entry.airline || null,
           departureAt: entry.departure_at || null,
           returnAt: entry.return_at || null,
+          direct: isDirectFlight(entry),
           link: buildSearchLink(destination, entry.departure_at),
         });
       }
@@ -258,12 +267,12 @@ async function renderPage(env, maxPrice) {
       (d) => `
         <tr>
           <td>${esc(d.destination)}</td>
-          <td class="price">$${d.price.toFixed(0)}${ilsLabel(d.price)}</td>
+          <td class="price" data-usd="${d.price}">$${d.price.toFixed(0)}${ilsLabel(d.price)}</td>
           <td>${esc(AIRLINE_NAMES[d.airline] || d.airline || '-')}</td>
           <td>${formatDate(d.departureAt)}</td>
           <td>${d.returnAt ? formatDate(d.returnAt) : '-'}</td>
           <td>${nightsBetween(d.departureAt, d.returnAt) ?? '-'}</td>
-          <td><a href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה</a></td>
+          <td><a class="purchase-link" data-base-link="${esc(d.link)}" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה</a></td>
         </tr>`
     )
     .join('');
@@ -291,7 +300,7 @@ async function renderPage(env, maxPrice) {
         <article class="card-list">
           <div class="head">
             <div class="dest">
-              <div class="country">${esc(country)}</div>
+              <div class="country">${esc(country)}${d.direct === true ? '<span class="direct-chip">טיסה ישירה</span>' : ''}</div>
               ${city ? `<div class="city">${esc(city)} &middot; ${esc(d.destination)}</div>` : `<div class="city">${esc(d.destination)}</div>`}
             </div>
             <span class="brand">FlyDeal</span>
@@ -303,8 +312,8 @@ async function renderPage(env, maxPrice) {
             <div class="item">${CARD_ICONS.plane}<span>${esc(airlineName)}</span></div>
           </div>
           <div class="price-cta">
-            <a class="card-link" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה &#8592;</a>
-            <div class="price tabular"><sup>$</sup>${d.price.toFixed(0)}${usdToIls ? `<span class="ils">₪${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span>` : ''}</div>
+            <a class="card-link purchase-link" data-base-link="${esc(d.link)}" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה &#8592;</a>
+            <div class="price tabular" data-usd="${d.price}"><sup>$</sup><span class="usd-amount">${d.price.toFixed(0)}</span>${usdToIls ? `<span class="ils">₪<span class="ils-amount">${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span></span>` : ''}</div>
           </div>
         </article>`;
     })
@@ -493,6 +502,41 @@ async function renderPage(env, maxPrice) {
   }
   .card-list .dest .country { font-size: var(--fs-country); font-weight: 800; line-height: 1.15; }
   .card-list .dest .city { font-size: var(--fs-city); opacity: var(--card-city-opacity); margin-top: 0.15rem; }
+  .direct-chip {
+    display: inline-block;
+    font-size: 0.62em;
+    font-weight: 800;
+    background: rgba(255,255,255,0.22);
+    padding: 0.15em 0.55em;
+    border-radius: 999px;
+    margin-inline-start: 0.5em;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .passengers {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink-soft);
+    font-size: 0.9em;
+    margin-bottom: 8px;
+  }
+  .passengers .step-btn {
+    appearance: none;
+    border: 1px solid var(--toggle-border);
+    background: var(--toggle-bg);
+    color: var(--ink);
+    font: inherit;
+    font-weight: 700;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    cursor: pointer;
+    line-height: 1;
+  }
+  .passengers .step-btn:hover { background: var(--toggle-hover); }
+  .passengers #paxCount { font-weight: 700; color: var(--ink); min-width: 1.2em; text-align: center; display: inline-block; }
 
   .card-list .rows { display: flex; flex-direction: column; gap: var(--row-gap); margin-bottom: 1.05rem; }
   .card-list .item { display: flex; align-items: center; gap: 0.6rem; font-size: var(--fs-item); }
@@ -550,6 +594,11 @@ async function renderPage(env, maxPrice) {
   <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} (${stored && stored.lastRunSource === 'manual' ? 'הרצה ידנית' : 'סריקה אוטומטית'}) | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
   <p class="meta">מספר סריקות אוטומטיות שבוצעו עד כה: <strong>${(stored && stored.cronRunCount) || 0}</strong> - המספר הזה עולה רק מהסריקה האוטומטית (לא מ-/run הידני), כדי שתוכל לוודא שה-Cron באמת רץ לבד</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
+  <p class="passengers">
+    <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
+    מספר נוסעים: <span id="paxCount">1</span>
+    <button type="button" id="paxPlus" class="step-btn" aria-label="הוסף נוסע">+</button>
+  </p>
   ${usdToIls ? `<p class="meta">שער המרה המוצג: $1 = ₪${usdToIls.toFixed(2)}</p>` : ''}
   ${!usdToIls && stored && stored.fxError ? `<p class="meta">לא הצלחתי לעדכן שער חליפין: ${esc(stored.fxError)}</p>` : ''}
   ${error ? `<div class="error">שגיאה בסריקה האחרונה: ${esc(error)} (הרשימה למטה מהסריקה המוצלחת הקודמת אם קיימת)</div>` : ''}
@@ -595,6 +644,63 @@ async function renderPage(env, maxPrice) {
         }
         localStorage.setItem(key, next);
       });
+    })();
+    (function () {
+      var FX_RATE = ${usdToIls ? usdToIls : 'null'};
+      var key = 'flydeal-passengers';
+      var min = 1, max = 9;
+      var saved = parseInt(localStorage.getItem(key), 10);
+      var count = (saved >= min && saved <= max) ? saved : 1;
+      var countEl = document.getElementById('paxCount');
+
+      function updatePrices() {
+        document.querySelectorAll('td.price[data-usd]').forEach(function (td) {
+          var base = parseFloat(td.dataset.usd);
+          var total = base * count;
+          var text = '$' + Math.round(total);
+          if (FX_RATE) text += ' (₪' + Math.round(total * FX_RATE).toLocaleString('he-IL') + ')';
+          td.textContent = text;
+        });
+        document.querySelectorAll('.card-list .price[data-usd]').forEach(function (el) {
+          var base = parseFloat(el.dataset.usd);
+          var total = base * count;
+          var usdAmount = el.querySelector('.usd-amount');
+          if (usdAmount) usdAmount.textContent = Math.round(total);
+          var ilsAmount = el.querySelector('.ils-amount');
+          if (ilsAmount && FX_RATE) ilsAmount.textContent = Math.round(total * FX_RATE).toLocaleString('he-IL');
+        });
+      }
+
+      function updateLinks() {
+        document.querySelectorAll('a.purchase-link').forEach(function (a) {
+          var base = a.dataset.baseLink;
+          try {
+            var url = new URL(base);
+            var q = url.searchParams.get('q');
+            if (q) {
+              q = q.replace(/ for \\d+ adults?$/, '');
+              if (count > 1) q += ' for ' + count + ' adults';
+              url.searchParams.set('q', q);
+            }
+            a.href = url.toString();
+          } catch (e) {}
+        });
+      }
+
+      function render() {
+        countEl.textContent = count;
+        updatePrices();
+        updateLinks();
+      }
+
+      document.getElementById('paxMinus').addEventListener('click', function () {
+        if (count > min) { count--; localStorage.setItem(key, count); render(); }
+      });
+      document.getElementById('paxPlus').addEventListener('click', function () {
+        if (count < max) { count++; localStorage.setItem(key, count); render(); }
+      });
+
+      render();
     })();
   </script>
 </body>
