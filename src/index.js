@@ -135,14 +135,6 @@ function buildSearchLink(destination, departureAt) {
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
 }
 
-function isDirectFlight(entry) {
-  if (typeof entry.transfers !== 'number') return null;
-  if (entry.return_at && typeof entry.return_transfers === 'number') {
-    return entry.transfers === 0 && entry.return_transfers === 0;
-  }
-  return entry.transfers === 0;
-}
-
 function extractDeals(data) {
   const deals = [];
   for (const [destination, entries] of Object.entries(data)) {
@@ -154,7 +146,6 @@ function extractDeals(data) {
           airline: entry.airline || null,
           departureAt: entry.departure_at || null,
           returnAt: entry.return_at || null,
-          direct: isDirectFlight(entry),
           link: buildSearchLink(destination, entry.departure_at),
         });
       }
@@ -300,7 +291,7 @@ async function renderPage(env, maxPrice) {
         <article class="card-list">
           <div class="head">
             <div class="dest">
-              <div class="country">${esc(country)}${d.direct === true ? '<span class="direct-chip">טיסה ישירה</span>' : ''}</div>
+              <div class="country">${esc(country)}</div>
               ${city ? `<div class="city">${esc(city)} &middot; ${esc(d.destination)}</div>` : `<div class="city">${esc(d.destination)}</div>`}
             </div>
             <span class="brand">FlyDeal</span>
@@ -502,17 +493,6 @@ async function renderPage(env, maxPrice) {
   }
   .card-list .dest .country { font-size: var(--fs-country); font-weight: 800; line-height: 1.15; }
   .card-list .dest .city { font-size: var(--fs-city); opacity: var(--card-city-opacity); margin-top: 0.15rem; }
-  .direct-chip {
-    display: inline-block;
-    font-size: 0.62em;
-    font-weight: 800;
-    background: rgba(255,255,255,0.22);
-    padding: 0.15em 0.55em;
-    border-radius: 999px;
-    margin-inline-start: 0.5em;
-    vertical-align: middle;
-    white-space: nowrap;
-  }
 
   .passengers {
     display: inline-flex;
@@ -718,26 +698,6 @@ export default {
     if (url.pathname === '/run') {
       await runScan(env, 'manual');
       return new Response('scan complete, see /', { status: 200 });
-    }
-    if (url.pathname === '/debug-raw') {
-      try {
-        const data = await fetchCheapFlights(env.TRAVELPAYOUTS_TOKEN);
-        const sample = {};
-        let count = 0;
-        for (const [destination, entries] of Object.entries(data)) {
-          for (const entry of Object.values(entries || {})) {
-            sample[destination] = entry;
-            count++;
-            break;
-          }
-          if (count >= 3) break;
-        }
-        return new Response(JSON.stringify(sample, null, 2), {
-          headers: { 'content-type': 'application/json; charset=UTF-8' },
-        });
-      } catch (err) {
-        return new Response(`Error: ${String((err && err.message) || err)}`, { status: 500 });
-      }
     }
     if (url.pathname === '/manifest.webmanifest') {
       return new Response(MANIFEST, {
