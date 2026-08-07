@@ -266,19 +266,31 @@ const CARD_ICONS = {
   plane: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12l19-9-6 9 6 9-19-9z"></path><path d="M2 12h13"></path></svg>',
 };
 
-async function renderPage(env, maxPrice) {
+async function renderPage(env, maxPrice, month) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
-  const deals = allDeals.filter((d) => d.price <= maxPrice);
+  const deals = allDeals
+    .filter((d) => d.price <= maxPrice)
+    .filter((d) => !month || (d.departureAt && d.departureAt.slice(0, 7) === month));
   const updatedAt = stored && stored.updatedAt
     ? new Date(stored.updatedAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
     : 'טרם עודכן';
   const error = stored && stored.error;
   const usdToIls = stored && stored.usdToIls;
 
+  const monthQS = month ? `&month=${month}` : '';
   const presetLinks = PRICE_PRESETS.map((p) =>
-    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}">$${p}</a>`
+    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}">$${p}</a>`
   ).join(' | ');
+
+  const monthOptions = nextMonths(6);
+  const monthLinks = [
+    month ? `<a href="/?max=${maxPrice}">הכל</a>` : '<strong>הכל</strong>',
+    ...monthOptions.map((m) => {
+      const label = new Date(`${m}-01T00:00:00`).toLocaleString('he-IL', { month: 'long' });
+      return m === month ? `<strong>${label}</strong>` : `<a href="/?max=${maxPrice}&month=${m}">${label}</a>`;
+    }),
+  ].join(' | ');
 
   function ilsLabel(price) {
     if (!usdToIls) return '';
@@ -606,6 +618,7 @@ async function renderPage(env, maxPrice) {
   <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} (${stored && stored.lastRunSource === 'manual' ? 'הרצה ידנית' : 'סריקה אוטומטית'}) | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
   <p class="meta">מספר סריקות אוטומטיות שבוצעו עד כה: <strong>${(stored && stored.cronRunCount) || 0}</strong> - המספר הזה עולה רק מהסריקה האוטומטית (לא מ-/run הידני), כדי שתוכל לוודא שה-Cron באמת רץ לבד</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
+  <p class="presets">חודש: ${monthLinks}</p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
     מספר נוסעים: <span id="paxCount">1</span>
@@ -741,6 +754,8 @@ export default {
     if (url.pathname === '/icon-512-maskable.png') return pngResponse(ICON_512_MASKABLE_B64);
     const requested = Number(url.searchParams.get('max'));
     const maxPrice = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 2000) : DEFAULT_MAX_PRICE;
-    return renderPage(env, maxPrice);
+    const monthParam = url.searchParams.get('month');
+    const month = monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : null;
+    return renderPage(env, maxPrice, month);
   },
 };
