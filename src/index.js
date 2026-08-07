@@ -102,8 +102,9 @@ const AIRPORT_INFO = {
   TBS: ['גאורגיה', 'טביליסי'], KUT: ['גאורגיה', 'קוטאיסי'], EVN: ['ארמניה', 'ירוואן'],
 };
 
-async function fetchCheapFlights(token) {
-  const url = `${TRAVELPAYOUTS_URL}?origin=${ORIGIN}&destination=-&currency=usd&token=${encodeURIComponent(token)}`;
+async function fetchCheapFlights(token, departDate) {
+  let url = `${TRAVELPAYOUTS_URL}?origin=${ORIGIN}&destination=-&currency=usd&token=${encodeURIComponent(token)}`;
+  if (departDate) url += `&depart_date=${departDate}`;
   const res = await fetch(url, { headers: { 'X-Access-Token': token } });
   if (!res.ok) {
     throw new Error(`Travelpayouts API HTTP ${res.status}`);
@@ -113,6 +114,37 @@ async function fetchCheapFlights(token) {
     throw new Error(`Travelpayouts API error: ${body.error || 'unknown'}`);
   }
   return body.data || {};
+}
+
+function nextMonths(count) {
+  const now = new Date();
+  const months = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  return months;
+}
+
+async function fetchCheapFlightsForMonths(token, months) {
+  const results = await Promise.allSettled(months.map((month) => fetchCheapFlights(token, month)));
+  const merged = {};
+  let successCount = 0;
+  results.forEach((result, i) => {
+    if (result.status !== 'fulfilled') return;
+    successCount++;
+    const month = months[i];
+    for (const [destination, entries] of Object.entries(result.value)) {
+      if (!merged[destination]) merged[destination] = {};
+      for (const [key, entry] of Object.entries(entries || {})) {
+        merged[destination][`${month}-${key}`] = entry;
+      }
+    }
+  });
+  if (successCount === 0) {
+    throw new Error('Travelpayouts API failed for all months');
+  }
+  return merged;
 }
 
 async function fetchUsdToIls() {
@@ -165,7 +197,7 @@ async function runScan(env, source) {
   const fxError = fx.error;
 
   try {
-    const data = await fetchCheapFlights(env.TRAVELPAYOUTS_TOKEN);
+    const data = await fetchCheapFlightsForMonths(env.TRAVELPAYOUTS_TOKEN, nextMonths(6));
     const deals = extractDeals(data);
     await env.DEALS.put(
       KV_KEY,
