@@ -348,7 +348,7 @@ async function renderPage(env, maxPrice, month) {
           </div>
           <div class="price-cta">
             <a class="card-link purchase-link" data-base-link="${esc(d.link)}" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה &#8592;</a>
-            <div class="price tabular" data-usd="${d.price}"><sup>$</sup><span class="usd-amount">${d.price.toFixed(0)}</span>${usdToIls ? `<span class="ils">₪<span class="ils-amount">${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span></span>` : ''}</div>
+            <div class="price tabular" data-usd="${d.price}">${usdToIls ? `<sup>₪</sup><span class="ils-amount">${Math.round(d.price * usdToIls).toLocaleString('he-IL')}</span><span class="ils">$<span class="usd-amount">${d.price.toFixed(0)}</span></span>` : `<sup>$</sup><span class="usd-amount">${d.price.toFixed(0)}</span>`}</div>
           </div>
         </article>`;
     })
