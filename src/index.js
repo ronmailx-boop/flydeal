@@ -197,7 +197,7 @@ async function runScan(env, source) {
   const fxError = fx.error;
 
   try {
-    const data = await fetchCheapFlightsForMonths(env.TRAVELPAYOUTS_TOKEN, nextMonths(6));
+    const data = await fetchCheapFlightsForMonths(env.TRAVELPAYOUTS_TOKEN, nextMonths(12));
     const deals = extractDeals(data);
     await env.DEALS.put(
       KV_KEY,
@@ -283,7 +283,7 @@ async function renderPage(env, maxPrice, month) {
     p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}">$${p}</a>`
   ).join(' | ');
 
-  const monthOptions = nextMonths(6);
+  const monthOptions = nextMonths(12);
   const monthLinks = [
     month ? `<a href="/?max=${maxPrice}">הכל</a>` : '<strong>הכל</strong>',
     ...monthOptions.map((m) => {
