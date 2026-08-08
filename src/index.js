@@ -268,6 +268,29 @@ function daysRangeLabel(departureAt, returnAt) {
   return `ימים ${d1} עד ${d2}`;
 }
 
+const ISRAELI_HOLIDAYS = {};
+function addHoliday(name, startIso, days) {
+  const start = new Date(`${startIso}T00:00:00`);
+  for (let i = 0; i < days; i++) {
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    ISRAELI_HOLIDAYS[iso] = name;
+  }
+}
+addHoliday('ראש השנה', '2026-09-12', 2);
+addHoliday('יום כיפור', '2026-09-21', 1);
+addHoliday('סוכות', '2026-09-26', 7);
+addHoliday('שמחת תורה', '2026-10-03', 1);
+addHoliday('חנוכה', '2026-12-05', 8);
+addHoliday('ט"ו בשבט', '2027-01-23', 1);
+addHoliday('פורים', '2027-03-23', 1);
+addHoliday('פסח', '2027-04-22', 7);
+addHoliday('יום הזיכרון', '2027-05-11', 1);
+addHoliday('יום העצמאות', '2027-05-12', 1);
+addHoliday('ל"ג בעומר', '2027-05-25', 1);
+addHoliday('שבועות', '2027-06-11', 1);
+addHoliday('תשעה באב', '2027-08-12', 1);
+
 const CARD_ICONS = {
   week: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M7 14h.01"></path><path d="M12 14h.01"></path><path d="M17 14h.01"></path></svg>',
   calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg>',
@@ -276,7 +299,7 @@ const CARD_ICONS = {
   hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 19V6"></path><path d="M2 12h16a3 3 0 0 1 3 3v4"></path><path d="M2 19h20"></path><circle cx="8" cy="9" r="2"></circle><path d="M2 9h6"></path></svg>',
 };
 
-async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
+async function renderPage(env, maxPrice, month, country, minNights, maxNights, departDate, returnDate) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
   const deals = allDeals
@@ -290,7 +313,9 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
       if (minNights != null && nights < minNights) return false;
       if (maxNights != null && nights > maxNights) return false;
       return true;
-    });
+    })
+    .filter((d) => !departDate || (d.departureAt && d.departureAt.slice(0, 10) === departDate))
+    .filter((d) => !returnDate || (d.returnAt && d.returnAt.slice(0, 10) === returnDate));
   const updatedAt = stored && stored.updatedAt
     ? new Date(stored.updatedAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
     : 'טרם עודכן';
@@ -300,16 +325,17 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
   const monthQS = month ? `&month=${month}` : '';
   const countryQS = country ? `&country=${encodeURIComponent(country)}` : '';
   const nightsQS = (minNights != null ? `&minNights=${minNights}` : '') + (maxNights != null ? `&maxNights=${maxNights}` : '');
+  const datesQS = (departDate ? `&departDate=${departDate}` : '') + (returnDate ? `&returnDate=${returnDate}` : '');
   const presetLinks = PRICE_PRESETS.map((p) =>
-    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}${countryQS}${nightsQS}">$${p}</a>`
+    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}${countryQS}${nightsQS}${datesQS}">$${p}</a>`
   ).join(' | ');
 
   const monthOptions = nextMonths(12);
   const monthLinks = [
-    month ? `<a href="/?max=${maxPrice}${countryQS}${nightsQS}">הכל</a>` : '<strong>הכל</strong>',
+    month ? `<a href="/?max=${maxPrice}${countryQS}${nightsQS}${datesQS}">הכל</a>` : '<strong>הכל</strong>',
     ...monthOptions.map((m) => {
       const label = new Date(`${m}-01T00:00:00`).toLocaleString('he-IL', { month: 'long' });
-      return m === month ? `<strong>${label}</strong>` : `<a href="/?max=${maxPrice}&month=${m}${countryQS}${nightsQS}">${label}</a>`;
+      return m === month ? `<strong>${label}</strong>` : `<a href="/?max=${maxPrice}&month=${m}${countryQS}${nightsQS}${datesQS}">${label}</a>`;
     }),
   ].join(' | ');
 
@@ -318,6 +344,13 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
       allDeals.filter((d) => AIRPORT_INFO[d.destination]).map((d) => AIRPORT_INFO[d.destination][0])
     )
   ).sort((a, b) => a.localeCompare('he'));
+
+  const availableDepartDates = Array.from(
+    new Set(allDeals.filter((d) => d.departureAt).map((d) => d.departureAt.slice(0, 10)))
+  );
+  const availableReturnDates = Array.from(
+    new Set(allDeals.filter((d) => d.returnAt).map((d) => d.returnAt.slice(0, 10)))
+  );
 
   function ilsLabel(price) {
     if (!usdToIls) return '';
@@ -523,6 +556,42 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
     padding: 0.3rem 0.9rem;
     margin-inline-start: 0.4rem;
   }
+  .date-btn {
+    font: inherit;
+    color: var(--ink);
+    background: var(--toggle-bg);
+    border: 1px solid var(--toggle-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.9rem;
+    margin-inline-start: 0.4rem;
+    cursor: pointer;
+  }
+  .date-btn:hover { background: var(--toggle-hover); }
+  #clearDates { margin-inline-start: 0.6rem; }
+  .calendar-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; padding: 1rem;
+  }
+  .calendar-modal {
+    background: var(--surface); color: var(--ink);
+    border: 1px solid var(--toggle-border); border-radius: 14px;
+    padding: 1rem; width: 100%; max-width: 340px;
+  }
+  .calendar-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; font-weight: 700; }
+  .cal-nav { background: none; border: none; color: var(--ink); font-size: 1.2rem; cursor: pointer; padding: 0.2rem 0.6rem; }
+  .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: var(--ink-soft); margin-bottom: 0.3rem; }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.2rem; }
+  .calendar-day { position: relative; aspect-ratio: 1; border: none; background: var(--toggle-bg); color: var(--ink); border-radius: 8px; cursor: pointer; font: inherit; }
+  .calendar-day:hover:not(:disabled) { background: var(--toggle-hover); }
+  .calendar-day.empty { background: none; cursor: default; }
+  .calendar-day:disabled { opacity: 0.3; cursor: not-allowed; }
+  .calendar-day.holiday { box-shadow: inset 0 0 0 2px #f59e0b; }
+  .calendar-day.has-deals::after { content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: #22c55e; }
+  .calendar-legend { font-size: 0.8rem; color: var(--ink-soft); margin: 0.7rem 0 0; }
+  .calendar-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 0.2rem; }
+  .calendar-legend .dot.holiday { box-shadow: inset 0 0 0 2px #f59e0b; }
+  .calendar-legend .dot.has-deals { background: #22c55e; }
   .error { background:var(--error-bg); border:1px solid var(--error-border); color:var(--error-ink); padding:10px; border-radius:8px; margin-bottom:16px; }
   table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:10px; overflow:hidden; }
   th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--border); }
@@ -677,7 +746,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
     <datalist id="countryDatalist">
       ${countryOptions.map((c) => `<option value="${esc(c)}">`).join('')}
     </datalist>
-    ${country ? `<a href="/?max=${maxPrice}${monthQS}${nightsQS}" id="clearCountry">נקה יעד</a>` : ''}
+    ${country ? `<a href="/?max=${maxPrice}${monthQS}${nightsQS}${datesQS}" id="clearCountry">נקה יעד</a>` : ''}
   </p>
   <p class="presets">
     לילות:
@@ -694,6 +763,12 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
         .map((n) => `<option value="${n}" ${maxNights === n ? 'selected' : ''}>${n}</option>`)
         .join('')}
     </select>
+  </p>
+  <p class="presets">
+    תאריכים:
+    <button type="button" id="departDateBtn" class="date-btn">${departDate ? formatDate(departDate) : 'בחר תאריך יציאה'}</button>
+    <button type="button" id="returnDateBtn" class="date-btn">${returnDate ? formatDate(returnDate) : 'בחר תאריך חזרה'}</button>
+    ${departDate || returnDate ? `<a href="/?max=${maxPrice}${countryQS}" id="clearDates">נקה תאריכים</a>` : ''}
   </p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
@@ -808,6 +883,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
       var MONTH_QS = '${monthQS}';
       var COUNTRY_QS = '${countryQS}';
       var NIGHTS_QS = '${nightsQS}';
+      var DATES_QS = '${datesQS}';
 
       var input = document.getElementById('countryInput');
       if (input) {
@@ -817,9 +893,9 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
         function goCountry() {
           var value = input.value.trim();
           if (!value) {
-            location.href = '/?max=' + MAX_PRICE + MONTH_QS + NIGHTS_QS;
+            location.href = '/?max=' + MAX_PRICE + MONTH_QS + NIGHTS_QS + DATES_QS;
           } else if (options.indexOf(value) !== -1) {
-            location.href = '/?max=' + MAX_PRICE + '&country=' + encodeURIComponent(value) + NIGHTS_QS;
+            location.href = '/?max=' + MAX_PRICE + '&country=' + encodeURIComponent(value) + NIGHTS_QS + DATES_QS;
           }
         }
         input.addEventListener('change', goCountry);
@@ -835,11 +911,128 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
           var min = minSel.value;
           var max = maxSel.value;
           var qs = (min ? '&minNights=' + min : '') + (max ? '&maxNights=' + max : '');
-          location.href = '/?max=' + MAX_PRICE + MONTH_QS + COUNTRY_QS + qs;
+          location.href = '/?max=' + MAX_PRICE + MONTH_QS + COUNTRY_QS + qs + DATES_QS;
         }
         minSel.addEventListener('change', goNights);
         maxSel.addEventListener('change', goNights);
       }
+    })();
+    (function () {
+      var departBtn = document.getElementById('departDateBtn');
+      var returnBtn = document.getElementById('returnDateBtn');
+      if (!departBtn || !returnBtn) return;
+
+      var MAX_PRICE = ${maxPrice};
+      var COUNTRY_QS = '${countryQS}';
+      var HOLIDAYS = ${JSON.stringify(ISRAELI_HOLIDAYS)};
+      var AVAILABLE_DEPART = ${JSON.stringify(availableDepartDates)};
+      var AVAILABLE_RETURN = ${JSON.stringify(availableReturnDates)};
+      var selectedDepart = ${departDate ? `'${departDate}'` : 'null'};
+      var selectedReturn = ${returnDate ? `'${returnDate}'` : 'null'};
+      var weekdayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+
+      function pad(n) { return String(n).padStart(2, '0'); }
+      function toIso(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
+      function labelOf(iso) { return iso.split('-').reverse().join('/'); }
+
+      var backdrop = null;
+
+      function closeCalendar() {
+        if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        backdrop = null;
+      }
+
+      function navigateIfReady() {
+        if (selectedDepart && selectedReturn) {
+          location.href = '/?max=' + MAX_PRICE + COUNTRY_QS + '&departDate=' + selectedDepart + '&returnDate=' + selectedReturn;
+        }
+      }
+
+      function openCalendar(mode) {
+        var today = new Date();
+        var startYear = today.getFullYear(), startMonth = today.getMonth();
+        var viewYear = startYear, viewMonth = startMonth;
+        if (mode === 'return' && selectedDepart) {
+          var parts = selectedDepart.split('-');
+          viewYear = parseInt(parts[0], 10);
+          viewMonth = parseInt(parts[1], 10) - 1;
+        }
+        var maxOrdinal = startYear * 12 + startMonth + 11;
+        var minAllowed = mode === 'return' && selectedDepart ? selectedDepart : toIso(startYear, startMonth, today.getDate());
+
+        backdrop = document.createElement('div');
+        backdrop.className = 'calendar-modal-backdrop';
+        var modal = document.createElement('div');
+        modal.className = 'calendar-modal';
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+        backdrop.addEventListener('click', function (e) {
+          if (e.target === backdrop) closeCalendar();
+        });
+
+        function render() {
+          var monthLabel = new Date(viewYear, viewMonth, 1).toLocaleString('he-IL', { month: 'long', year: 'numeric' });
+          var firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
+          var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+          var ordinal = viewYear * 12 + viewMonth;
+          var avail = mode === 'depart' ? AVAILABLE_DEPART : AVAILABLE_RETURN;
+
+          var html = '<div class="calendar-header">'
+            + '<button type="button" class="cal-nav" id="calPrev"' + (ordinal <= startYear * 12 + startMonth ? ' disabled' : '') + '>&#8594;</button>'
+            + '<span>' + monthLabel + '</span>'
+            + '<button type="button" class="cal-nav" id="calNext"' + (ordinal >= maxOrdinal ? ' disabled' : '') + '>&#8592;</button>'
+            + '</div><div class="calendar-weekdays">' + weekdayNames.map(function (w) { return '<span>' + w + '</span>'; }).join('') + '</div>'
+            + '<div class="calendar-grid">';
+          for (var i = 0; i < firstWeekday; i++) html += '<span class="calendar-day empty"></span>';
+          for (var day = 1; day <= daysInMonth; day++) {
+            var iso = toIso(viewYear, viewMonth, day);
+            var classes = ['calendar-day'];
+            var disabled = iso < minAllowed;
+            if (disabled) classes.push('disabled');
+            if (HOLIDAYS[iso]) classes.push('holiday');
+            if (avail.indexOf(iso) !== -1) classes.push('has-deals');
+            html += '<button type="button" class="' + classes.join(' ') + '" data-date="' + iso + '"'
+              + (disabled ? ' disabled' : '')
+              + (HOLIDAYS[iso] ? ' title="' + HOLIDAYS[iso] + '"' : '')
+              + '>' + day + '</button>';
+          }
+          html += '</div><p class="calendar-legend"><span class="dot holiday"></span>חג &nbsp; <span class="dot has-deals"></span>יש דילים</p>';
+          modal.innerHTML = html;
+
+          var prevBtn = document.getElementById('calPrev');
+          var nextBtn = document.getElementById('calNext');
+          if (prevBtn) prevBtn.addEventListener('click', function () {
+            viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+            render();
+          });
+          if (nextBtn) nextBtn.addEventListener('click', function () {
+            viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+            render();
+          });
+          modal.querySelectorAll('.calendar-day[data-date]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var picked = btn.dataset.date;
+              if (mode === 'depart') {
+                selectedDepart = picked;
+                departBtn.textContent = labelOf(picked);
+                if (selectedReturn && selectedReturn < selectedDepart) {
+                  selectedReturn = null;
+                  returnBtn.textContent = 'בחר תאריך חזרה';
+                }
+              } else {
+                selectedReturn = picked;
+                returnBtn.textContent = labelOf(picked);
+              }
+              closeCalendar();
+              navigateIfReady();
+            });
+          });
+        }
+        render();
+      }
+
+      departBtn.addEventListener('click', function () { openCalendar('depart'); });
+      returnBtn.addEventListener('click', function () { openCalendar('return'); });
     })();
   </script>
 </body>
@@ -875,6 +1068,10 @@ export default {
     const minNights = Number.isInteger(minNightsParam) && minNightsParam >= 1 && minNightsParam <= 60 ? minNightsParam : null;
     const maxNightsParam = Number(url.searchParams.get('maxNights'));
     const maxNights = Number.isInteger(maxNightsParam) && maxNightsParam >= 1 && maxNightsParam <= 60 ? maxNightsParam : null;
-    return renderPage(env, maxPrice, month, country, minNights, maxNights);
+    const departDateParam = url.searchParams.get('departDate');
+    const departDate = departDateParam && /^\d{4}-\d{2}-\d{2}$/.test(departDateParam) ? departDateParam : null;
+    const returnDateParam = url.searchParams.get('returnDate');
+    const returnDate = returnDateParam && /^\d{4}-\d{2}-\d{2}$/.test(returnDateParam) ? returnDateParam : null;
+    return renderPage(env, maxPrice, month, country, minNights, maxNights, departDate, returnDate);
   },
 };
