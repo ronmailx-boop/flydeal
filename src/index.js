@@ -276,12 +276,13 @@ const CARD_ICONS = {
   hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 19V6"></path><path d="M2 12h16a3 3 0 0 1 3 3v4"></path><path d="M2 19h20"></path><circle cx="8" cy="9" r="2"></circle><path d="M2 9h6"></path></svg>',
 };
 
-async function renderPage(env, maxPrice, month) {
+async function renderPage(env, maxPrice, month, country) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
   const deals = allDeals
     .filter((d) => d.price <= maxPrice)
-    .filter((d) => !month || (d.departureAt && d.departureAt.slice(0, 7) === month));
+    .filter((d) => !month || (d.departureAt && d.departureAt.slice(0, 7) === month))
+    .filter((d) => !country || (AIRPORT_INFO[d.destination] && AIRPORT_INFO[d.destination][0] === country));
   const updatedAt = stored && stored.updatedAt
     ? new Date(stored.updatedAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
     : 'טרם עודכן';
@@ -289,17 +290,30 @@ async function renderPage(env, maxPrice, month) {
   const usdToIls = stored && stored.usdToIls;
 
   const monthQS = month ? `&month=${month}` : '';
+  const countryQS = country ? `&country=${encodeURIComponent(country)}` : '';
   const presetLinks = PRICE_PRESETS.map((p) =>
-    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}">$${p}</a>`
+    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}${countryQS}">$${p}</a>`
   ).join(' | ');
 
   const monthOptions = nextMonths(12);
   const monthLinks = [
-    month ? `<a href="/?max=${maxPrice}">הכל</a>` : '<strong>הכל</strong>',
+    month ? `<a href="/?max=${maxPrice}${countryQS}">הכל</a>` : '<strong>הכל</strong>',
     ...monthOptions.map((m) => {
       const label = new Date(`${m}-01T00:00:00`).toLocaleString('he-IL', { month: 'long' });
-      return m === month ? `<strong>${label}</strong>` : `<a href="/?max=${maxPrice}&month=${m}">${label}</a>`;
+      return m === month ? `<strong>${label}</strong>` : `<a href="/?max=${maxPrice}&month=${m}${countryQS}">${label}</a>`;
     }),
+  ].join(' | ');
+
+  const countryOptions = Array.from(
+    new Set(allDeals.map((d) => (AIRPORT_INFO[d.destination] ? AIRPORT_INFO[d.destination][0] : d.destination)))
+  ).sort((a, b) => a.localeCompare('he'));
+  const countryLinks = [
+    country ? `<a href="/?max=${maxPrice}${monthQS}">הכל</a>` : '<strong>הכל</strong>',
+    ...countryOptions.map((c) =>
+      c === country
+        ? `<strong>${esc(c)}</strong>`
+        : `<a href="/?max=${maxPrice}&country=${encodeURIComponent(c)}">${esc(c)}</a>`
+    ),
   ].join(' | ');
 
   function ilsLabel(price) {
@@ -628,12 +642,13 @@ async function renderPage(env, maxPrice, month) {
         <path d="M2.01,21L23,12L2.01,3L2,10l15,2l-15,2L2.01,21z" fill="#ffffff"/>
       </g>
     </svg>
-    <h1>FlyDeal - טיסות זולות מ-TLV (עד $${maxPrice} לנוסע)</h1>
+    <h1>FlyDeal - טיסות זולות מ-TLV${country ? ` ל${esc(country)}` : ''} (עד $${maxPrice} לנוסע)</h1>
   </header>
   <p class="meta">עודכן לאחרונה: ${esc(updatedAt)} (${stored && stored.lastRunSource === 'manual' ? 'הרצה ידנית' : 'סריקה אוטומטית'}) | מתעדכן אוטומטית כל 15 דקות - רענן את הדף כדי לראות נתונים חדשים</p>
   <p class="meta">מספר סריקות אוטומטיות שבוצעו עד כה: <strong>${(stored && stored.cronRunCount) || 0}</strong> - המספר הזה עולה רק מהסריקה האוטומטית (לא מ-/run הידני), כדי שתוכל לוודא שה-Cron באמת רץ לבד</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
   <p class="presets">חודש: ${monthLinks}</p>
+  <p class="presets">יעד: ${countryLinks}</p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
     מספר נוסעים: <span id="paxCount">1</span>
@@ -771,6 +786,7 @@ export default {
     const maxPrice = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 2000) : DEFAULT_MAX_PRICE;
     const monthParam = url.searchParams.get('month');
     const month = monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : null;
-    return renderPage(env, maxPrice, month);
+    const country = url.searchParams.get('country') || null;
+    return renderPage(env, maxPrice, month, country);
   },
 };
