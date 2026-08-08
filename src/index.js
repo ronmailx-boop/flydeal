@@ -514,6 +514,15 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
     min-width: 12rem;
   }
   .country-search #clearCountry { margin-inline-start: 0.6rem; }
+  #minNights, #maxNights {
+    font: inherit;
+    color: var(--ink);
+    background: var(--toggle-bg);
+    border: 1px solid var(--toggle-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.9rem;
+    margin-inline-start: 0.4rem;
+  }
   .error { background:var(--error-bg); border:1px solid var(--error-border); color:var(--error-ink); padding:10px; border-radius:8px; margin-bottom:16px; }
   table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:10px; overflow:hidden; }
   th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--border); }
