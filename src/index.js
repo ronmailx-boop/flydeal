@@ -167,6 +167,15 @@ function buildSearchLink(destination, departureAt) {
   return `https://www.google.com/travel/flights?q=${encodeURIComponent(q)}`;
 }
 
+function buildHotelSearchLink(destination, departureAt, returnAt) {
+  if (!departureAt || !returnAt) return null;
+  const checkin = departureAt.slice(0, 10);
+  const checkout = returnAt.slice(0, 10);
+  const info = AIRPORT_INFO[destination];
+  const ss = info ? `${info[1]}, ${info[0]}` : destination;
+  return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(ss)}&checkin=${checkin}&checkout=${checkout}`;
+}
+
 function extractDeals(data) {
   const deals = [];
   for (const [destination, entries] of Object.entries(data)) {
@@ -264,6 +273,7 @@ const CARD_ICONS = {
   calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18"></path><path d="M8 3v4"></path><path d="M16 3v4"></path></svg>',
   moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path></svg>',
   plane: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12l19-9-6 9 6 9-19-9z"></path><path d="M2 12h13"></path></svg>',
+  hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 19V6"></path><path d="M2 12h16a3 3 0 0 1 3 3v4"></path><path d="M2 19h20"></path><circle cx="8" cy="9" r="2"></circle><path d="M2 9h6"></path></svg>',
 };
 
 async function renderPage(env, maxPrice, month) {
@@ -298,8 +308,9 @@ async function renderPage(env, maxPrice, month) {
   }
 
   const rows = deals
-    .map(
-      (d) => `
+    .map((d) => {
+      const hotelLink = buildHotelSearchLink(d.destination, d.departureAt, d.returnAt);
+      return `
         <tr>
           <td>${esc(d.destination)}</td>
           <td class="price" data-usd="${d.price}">$${d.price.toFixed(0)}${ilsLabel(d.price)}</td>
@@ -308,15 +319,16 @@ async function renderPage(env, maxPrice, month) {
           <td>${d.returnAt ? formatDate(d.returnAt) : '-'}</td>
           <td>${nightsBetween(d.departureAt, d.returnAt) ?? '-'}</td>
           <td><a class="purchase-link" data-base-link="${esc(d.link)}" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה</a></td>
-        </tr>`
-    )
+          <td>${hotelLink ? `<a href="${esc(hotelLink)}" target="_blank" rel="noopener">מלונות</a>` : '-'}</td>
+        </tr>`;
+    })
     .join('');
 
   const table = deals.length
     ? `
       <table>
         <thead>
-          <tr><th>יעד</th><th>מחיר</th><th>חברת תעופה</th><th>יציאה</th><th>חזור</th><th>לילות</th><th>קישור</th></tr>
+          <tr><th>יעד</th><th>מחיר</th><th>חברת תעופה</th><th>יציאה</th><th>חזור</th><th>לילות</th><th>קישור</th><th>מלונות</th></tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>`
@@ -331,6 +343,7 @@ async function renderPage(env, maxPrice, month) {
       const nights = nightsBetween(d.departureAt, d.returnAt);
       const daysLabel = daysRangeLabel(d.departureAt, d.returnAt);
       const datesText = d.returnAt ? `${formatDate(d.departureAt)} &larr; ${formatDate(d.returnAt)}` : formatDate(d.departureAt);
+      const hotelLink = buildHotelSearchLink(d.destination, d.departureAt, d.returnAt);
       return `
         <article class="card-list">
           <div class="head">
@@ -345,6 +358,7 @@ async function renderPage(env, maxPrice, month) {
             <div class="item">${CARD_ICONS.calendar}<span class="tabular">${datesText}</span></div>
             <div class="item">${CARD_ICONS.moon}<span>${nights !== null ? `<b class="tabular">${nights}</b> לילות` : '-'}</span></div>
             <div class="item">${CARD_ICONS.plane}<span>${esc(airlineName)}</span></div>
+            ${hotelLink ? `<div class="item">${CARD_ICONS.hotel}<a class="hotel-link" href="${esc(hotelLink)}" target="_blank" rel="noopener">חיפוש מלונות ביעד</a></div>` : ''}
           </div>
           <div class="price-cta">
             <a class="card-link purchase-link" data-base-link="${esc(d.link)}" href="${esc(d.link)}" target="_blank" rel="noopener">לרכישה &#8592;</a>
@@ -566,6 +580,7 @@ async function renderPage(env, maxPrice, month) {
   .card-list .item { display: flex; align-items: center; gap: 0.6rem; font-size: var(--fs-item); }
   .card-list .item svg { width: var(--fs-icon); height: var(--fs-icon); flex-shrink: 0; color: var(--card-icon); }
   .card-list .item b { font-weight: 700; }
+  .card-list .item .hotel-link { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
 
   .card-list .price-cta {
     display: flex;
