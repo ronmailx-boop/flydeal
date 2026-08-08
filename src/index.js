@@ -305,16 +305,10 @@ async function renderPage(env, maxPrice, month, country) {
   ].join(' | ');
 
   const countryOptions = Array.from(
-    new Set(allDeals.map((d) => (AIRPORT_INFO[d.destination] ? AIRPORT_INFO[d.destination][0] : d.destination)))
+    new Set(
+      allDeals.filter((d) => AIRPORT_INFO[d.destination]).map((d) => AIRPORT_INFO[d.destination][0])
+    )
   ).sort((a, b) => a.localeCompare('he'));
-  const countryLinks = [
-    country ? `<a href="/?max=${maxPrice}${monthQS}">הכל</a>` : '<strong>הכל</strong>',
-    ...countryOptions.map((c) =>
-      c === country
-        ? `<strong>${esc(c)}</strong>`
-        : `<a href="/?max=${maxPrice}&country=${encodeURIComponent(c)}">${esc(c)}</a>`
-    ),
-  ].join(' | ');
 
   function ilsLabel(price) {
     if (!usdToIls) return '';
@@ -500,6 +494,17 @@ async function renderPage(env, maxPrice, month, country) {
   .meta { color:var(--ink-soft); font-size:0.9em; margin-bottom:8px; }
   .presets { margin-bottom:16px; }
   .presets a { color:var(--link); text-decoration:none; }
+  .country-search input {
+    font: inherit;
+    color: var(--ink);
+    background: var(--toggle-bg);
+    border: 1px solid var(--toggle-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.9rem;
+    margin-inline-start: 0.4rem;
+    min-width: 12rem;
+  }
+  .country-search #clearCountry { margin-inline-start: 0.6rem; }
   .error { background:var(--error-bg); border:1px solid var(--error-border); color:var(--error-ink); padding:10px; border-radius:8px; margin-bottom:16px; }
   table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:10px; overflow:hidden; }
   th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--border); }
@@ -648,7 +653,14 @@ async function renderPage(env, maxPrice, month, country) {
   <p class="meta">מספר סריקות אוטומטיות שבוצעו עד כה: <strong>${(stored && stored.cronRunCount) || 0}</strong> - המספר הזה עולה רק מהסריקה האוטומטית (לא מ-/run הידני), כדי שתוכל לוודא שה-Cron באמת רץ לבד</p>
   <p class="presets">סף מחיר: ${presetLinks}</p>
   <p class="presets">חודש: ${monthLinks}</p>
-  <p class="presets">יעד: ${countryLinks}</p>
+  <p class="presets country-search">
+    יעד:
+    <input type="text" id="countryInput" list="countryDatalist" placeholder="הקלד שם מדינה..." autocomplete="off" value="${country ? esc(country) : ''}">
+    <datalist id="countryDatalist">
+      ${countryOptions.map((c) => `<option value="${esc(c)}">`).join('')}
+    </datalist>
+    ${country ? `<a href="/?max=${maxPrice}${monthQS}" id="clearCountry">נקה יעד</a>` : ''}
+  </p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
     מספר נוסעים: <span id="paxCount">1</span>
@@ -756,6 +768,27 @@ async function renderPage(env, maxPrice, month, country) {
       });
 
       render();
+    })();
+    (function () {
+      var input = document.getElementById('countryInput');
+      if (!input) return;
+      var MAX_PRICE = ${maxPrice};
+      var MONTH_QS = '${monthQS}';
+      var options = Array.from(document.querySelectorAll('#countryDatalist option')).map(function (o) {
+        return o.value;
+      });
+      function go() {
+        var value = input.value.trim();
+        if (!value) {
+          location.href = '/?max=' + MAX_PRICE + MONTH_QS;
+        } else if (options.indexOf(value) !== -1) {
+          location.href = '/?max=' + MAX_PRICE + '&country=' + encodeURIComponent(value);
+        }
+      }
+      input.addEventListener('change', go);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') go();
+      });
     })();
   </script>
 </body>
