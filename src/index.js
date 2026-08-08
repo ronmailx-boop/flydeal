@@ -276,13 +276,21 @@ const CARD_ICONS = {
   hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 19V6"></path><path d="M2 12h16a3 3 0 0 1 3 3v4"></path><path d="M2 19h20"></path><circle cx="8" cy="9" r="2"></circle><path d="M2 9h6"></path></svg>',
 };
 
-async function renderPage(env, maxPrice, month, country) {
+async function renderPage(env, maxPrice, month, country, minNights, maxNights) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
   const deals = allDeals
     .filter((d) => d.price <= maxPrice)
     .filter((d) => !month || (d.departureAt && d.departureAt.slice(0, 7) === month))
-    .filter((d) => !country || (AIRPORT_INFO[d.destination] && AIRPORT_INFO[d.destination][0] === country));
+    .filter((d) => !country || (AIRPORT_INFO[d.destination] && AIRPORT_INFO[d.destination][0] === country))
+    .filter((d) => {
+      if (minNights == null && maxNights == null) return true;
+      const nights = nightsBetween(d.departureAt, d.returnAt);
+      if (nights === null) return false;
+      if (minNights != null && nights < minNights) return false;
+      if (maxNights != null && nights > maxNights) return false;
+      return true;
+    });
   const updatedAt = stored && stored.updatedAt
     ? new Date(stored.updatedAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
     : 'טרם עודכן';
@@ -291,16 +299,17 @@ async function renderPage(env, maxPrice, month, country) {
 
   const monthQS = month ? `&month=${month}` : '';
   const countryQS = country ? `&country=${encodeURIComponent(country)}` : '';
+  const nightsQS = (minNights != null ? `&minNights=${minNights}` : '') + (maxNights != null ? `&maxNights=${maxNights}` : '');
   const presetLinks = PRICE_PRESETS.map((p) =>
-    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}${countryQS}">$${p}</a>`
+    p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}${countryQS}${nightsQS}">$${p}</a>`
   ).join(' | ');
 
   const monthOptions = nextMonths(12);
   const monthLinks = [
-    month ? `<a href="/?max=${maxPrice}${countryQS}">הכל</a>` : '<strong>הכל</strong>',
+    month ? `<a href="/?max=${maxPrice}${countryQS}${nightsQS}">הכל</a>` : '<strong>הכל</strong>',
     ...monthOptions.map((m) => {
       const label = new Date(`${m}-01T00:00:00`).toLocaleString('he-IL', { month: 'long' });
-      return m === month ? `<strong>${label}</strong>` : `<a href="/?max=${maxPrice}&month=${m}${countryQS}">${label}</a>`;
+      return m === month ? `<strong>${label}</strong>` : `<a href="/?max=${maxPrice}&month=${m}${countryQS}${nightsQS}">${label}</a>`;
     }),
   ].join(' | ');
 
@@ -659,7 +668,23 @@ async function renderPage(env, maxPrice, month, country) {
     <datalist id="countryDatalist">
       ${countryOptions.map((c) => `<option value="${esc(c)}">`).join('')}
     </datalist>
-    ${country ? `<a href="/?max=${maxPrice}${monthQS}" id="clearCountry">נקה יעד</a>` : ''}
+    ${country ? `<a href="/?max=${maxPrice}${monthQS}${nightsQS}" id="clearCountry">נקה יעד</a>` : ''}
+  </p>
+  <p class="presets">
+    לילות:
+    <select id="minNights">
+      <option value="">הכל</option>
+      ${Array.from({ length: 21 }, (_, i) => i + 1)
+        .map((n) => `<option value="${n}" ${minNights === n ? 'selected' : ''}>${n}</option>`)
+        .join('')}
+    </select>
+    עד
+    <select id="maxNights">
+      <option value="">הכל</option>
+      ${Array.from({ length: 21 }, (_, i) => i + 1)
+        .map((n) => `<option value="${n}" ${maxNights === n ? 'selected' : ''}>${n}</option>`)
+        .join('')}
+    </select>
   </p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
@@ -770,25 +795,42 @@ async function renderPage(env, maxPrice, month, country) {
       render();
     })();
     (function () {
-      var input = document.getElementById('countryInput');
-      if (!input) return;
       var MAX_PRICE = ${maxPrice};
       var MONTH_QS = '${monthQS}';
-      var options = Array.from(document.querySelectorAll('#countryDatalist option')).map(function (o) {
-        return o.value;
-      });
-      function go() {
-        var value = input.value.trim();
-        if (!value) {
-          location.href = '/?max=' + MAX_PRICE + MONTH_QS;
-        } else if (options.indexOf(value) !== -1) {
-          location.href = '/?max=' + MAX_PRICE + '&country=' + encodeURIComponent(value);
+      var COUNTRY_QS = '${countryQS}';
+      var NIGHTS_QS = '${nightsQS}';
+
+      var input = document.getElementById('countryInput');
+      if (input) {
+        var options = Array.from(document.querySelectorAll('#countryDatalist option')).map(function (o) {
+          return o.value;
+        });
+        function goCountry() {
+          var value = input.value.trim();
+          if (!value) {
+            location.href = '/?max=' + MAX_PRICE + MONTH_QS + NIGHTS_QS;
+          } else if (options.indexOf(value) !== -1) {
+            location.href = '/?max=' + MAX_PRICE + '&country=' + encodeURIComponent(value) + NIGHTS_QS;
+          }
         }
+        input.addEventListener('change', goCountry);
+        input.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') goCountry();
+        });
       }
-      input.addEventListener('change', go);
-      input.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') go();
-      });
+
+      var minSel = document.getElementById('minNights');
+      var maxSel = document.getElementById('maxNights');
+      if (minSel && maxSel) {
+        function goNights() {
+          var min = minSel.value;
+          var max = maxSel.value;
+          var qs = (min ? '&minNights=' + min : '') + (max ? '&maxNights=' + max : '');
+          location.href = '/?max=' + MAX_PRICE + MONTH_QS + COUNTRY_QS + qs;
+        }
+        minSel.addEventListener('change', goNights);
+        maxSel.addEventListener('change', goNights);
+      }
     })();
   </script>
 </body>
@@ -820,6 +862,10 @@ export default {
     const monthParam = url.searchParams.get('month');
     const month = monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : null;
     const country = url.searchParams.get('country') || null;
-    return renderPage(env, maxPrice, month, country);
+    const minNightsParam = Number(url.searchParams.get('minNights'));
+    const minNights = Number.isInteger(minNightsParam) && minNightsParam >= 1 && minNightsParam <= 60 ? minNightsParam : null;
+    const maxNightsParam = Number(url.searchParams.get('maxNights'));
+    const maxNights = Number.isInteger(maxNightsParam) && maxNightsParam >= 1 && maxNightsParam <= 60 ? maxNightsParam : null;
+    return renderPage(env, maxPrice, month, country, minNights, maxNights);
   },
 };
