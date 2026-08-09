@@ -299,7 +299,7 @@ const CARD_ICONS = {
   hotel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 19V6"></path><path d="M2 12h16a3 3 0 0 1 3 3v4"></path><path d="M2 19h20"></path><circle cx="8" cy="9" r="2"></circle><path d="M2 9h6"></path></svg>',
 };
 
-async function renderPage(env, maxPrice, month, country, minNights, maxNights, departDate, returnDate) {
+async function renderPage(env, maxPrice, month, country, minNights, maxNights, departFrom, departTo, returnFrom, returnTo) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
   const preDateDeals = allDeals
@@ -315,8 +315,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       return true;
     });
   const deals = preDateDeals
-    .filter((d) => !departDate || (d.departureAt && d.departureAt.slice(0, 10) === departDate))
-    .filter((d) => !returnDate || (d.returnAt && d.returnAt.slice(0, 10) === returnDate));
+    .filter((d) => !departFrom || (d.departureAt && d.departureAt.slice(0, 10) >= departFrom))
+    .filter((d) => !departTo || (d.departureAt && d.departureAt.slice(0, 10) <= departTo))
+    .filter((d) => !returnFrom || (d.returnAt && d.returnAt.slice(0, 10) >= returnFrom))
+    .filter((d) => !returnTo || (d.returnAt && d.returnAt.slice(0, 10) <= returnTo));
   const updatedAt = stored && stored.updatedAt
     ? new Date(stored.updatedAt).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })
     : 'טרם עודכן';
@@ -326,7 +328,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   const monthQS = month ? `&month=${month}` : '';
   const countryQS = country ? `&country=${encodeURIComponent(country)}` : '';
   const nightsQS = (minNights != null ? `&minNights=${minNights}` : '') + (maxNights != null ? `&maxNights=${maxNights}` : '');
-  const datesQS = (departDate ? `&departDate=${departDate}` : '') + (returnDate ? `&returnDate=${returnDate}` : '');
+  const datesQS = (departFrom ? `&departFrom=${departFrom}` : '')
+    + (departTo ? `&departTo=${departTo}` : '')
+    + (returnFrom ? `&returnFrom=${returnFrom}` : '')
+    + (returnTo ? `&returnTo=${returnTo}` : '');
   const presetLinks = PRICE_PRESETS.map((p) =>
     p === maxPrice ? `<strong>$${p}</strong>` : `<a href="/?max=${p}${monthQS}${countryQS}${nightsQS}${datesQS}">$${p}</a>`
   ).join(' | ');
@@ -352,17 +357,17 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   const availableReturnDates = Array.from(
     new Set(preDateDeals.filter((d) => d.returnAt).map((d) => d.returnAt.slice(0, 10)))
   );
-  const dealDatePairs = Array.from(
-    new Set(
-      preDateDeals
-        .filter((d) => d.departureAt && d.returnAt)
-        .map((d) => `${d.departureAt.slice(0, 10)}|${d.returnAt.slice(0, 10)}`)
-    )
-  ).map((s) => s.split('|'));
 
   function ilsLabel(price) {
     if (!usdToIls) return '';
     return ` (₪${Math.round(price * usdToIls).toLocaleString('he-IL')})`;
+  }
+
+  function dateRangeLabel(from, to, placeholder) {
+    if (from && to) return `${formatDate(from)} - ${formatDate(to)}`;
+    if (from) return `${formatDate(from)} - ...`;
+    if (to) return `... - ${formatDate(to)}`;
+    return placeholder;
   }
 
   const rows = deals
@@ -591,7 +596,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: var(--ink-soft); margin-bottom: 0.3rem; }
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.2rem; }
   .calendar-day { position: relative; aspect-ratio: 1; border: 2px solid transparent; background: var(--toggle-bg); color: var(--ink); border-radius: 8px; cursor: pointer; font: inherit; font-weight: 700; }
-  .calendar-day:not(:disabled):not(.empty) { border-color: #22c55e; }
+  .calendar-day.available { border-color: #22c55e; }
+  .calendar-day.range-start { background: #0ea5e9; color: #fff; }
   .calendar-day:hover:not(:disabled) { background: var(--toggle-hover); }
   .calendar-day.empty { background: none; cursor: default; }
   .calendar-day:disabled { opacity: 0.35; cursor: not-allowed; font-weight: 400; }
@@ -775,10 +781,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   <p class="presets">
     תאריכים:
     <span class="date-buttons">
-      <button type="button" id="departDateBtn" class="date-btn">${departDate ? formatDate(departDate) : 'בחר תאריך יציאה'}</button>
-      <button type="button" id="returnDateBtn" class="date-btn">${returnDate ? formatDate(returnDate) : 'בחר תאריך חזרה'}</button>
+      <button type="button" id="departDateBtn" class="date-btn">${dateRangeLabel(departFrom, departTo, 'בחר טווח יציאה')}</button>
+      <button type="button" id="returnDateBtn" class="date-btn">${dateRangeLabel(returnFrom, returnTo, 'בחר טווח חזרה')}</button>
     </span>
-    <a href="/?max=${maxPrice}${countryQS}" id="clearDates"${departDate || returnDate ? '' : ' style="display:none"'}>נקה תאריכים</a>
+    <a href="/?max=${maxPrice}${countryQS}" id="clearDates"${departFrom || departTo || returnFrom || returnTo ? '' : ' style="display:none"'}>נקה תאריכים</a>
   </p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
@@ -937,9 +943,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       var HOLIDAYS = ${JSON.stringify(ISRAELI_HOLIDAYS)};
       var AVAILABLE_DEPART = ${JSON.stringify(availableDepartDates)};
       var AVAILABLE_RETURN = ${JSON.stringify(availableReturnDates)};
-      var DEAL_DATE_PAIRS = ${JSON.stringify(dealDatePairs)};
-      var selectedDepart = ${departDate ? `'${departDate}'` : 'null'};
-      var selectedReturn = ${returnDate ? `'${returnDate}'` : 'null'};
+      var departFrom = ${departFrom ? `'${departFrom}'` : 'null'};
+      var departTo = ${departTo ? `'${departTo}'` : 'null'};
+      var returnFrom = ${returnFrom ? `'${returnFrom}'` : 'null'};
+      var returnTo = ${returnTo ? `'${returnTo}'` : 'null'};
       var weekdayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
       var HOLIDAY_COLORS = {
         'ראש השנה': '#f59e0b',
@@ -961,6 +968,28 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       function pad(n) { return String(n).padStart(2, '0'); }
       function toIso(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
       function labelOf(iso) { return iso.split('-').reverse().join('/'); }
+      function rangeLabel(from, to, placeholder) {
+        if (from && to) return labelOf(from) + ' - ' + labelOf(to);
+        if (from) return labelOf(from) + ' - ...';
+        return placeholder;
+      }
+
+      function updateButtons() {
+        departBtn.textContent = rangeLabel(departFrom, departTo, 'בחר טווח יציאה');
+        returnBtn.textContent = rangeLabel(returnFrom, returnTo, 'בחר טווח חזרה');
+        var clearLink = document.getElementById('clearDates');
+        if (clearLink) clearLink.style.display = (departFrom || departTo || returnFrom || returnTo) ? '' : 'none';
+      }
+
+      function currentDatesQS() {
+        return (departFrom ? '&departFrom=' + departFrom : '')
+          + (departTo ? '&departTo=' + departTo : '')
+          + (returnFrom ? '&returnFrom=' + returnFrom : '')
+          + (returnTo ? '&returnTo=' + returnTo : '');
+      }
+      function navigate() {
+        location.href = '/?max=' + MAX_PRICE + COUNTRY_QS + currentDatesQS();
+      }
 
       var backdrop = null;
 
@@ -969,23 +998,16 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
         backdrop = null;
       }
 
-      function navigateIfReady() {
-        if (selectedDepart && selectedReturn) {
-          location.href = '/?max=' + MAX_PRICE + COUNTRY_QS + '&departDate=' + selectedDepart + '&returnDate=' + selectedReturn;
-        }
-      }
-
       function openCalendar(mode) {
         var today = new Date();
         var startYear = today.getFullYear(), startMonth = today.getMonth();
         var viewYear = startYear, viewMonth = startMonth;
-        if (mode === 'return' && selectedDepart) {
-          var parts = selectedDepart.split('-');
+        if (mode === 'return' && departFrom) {
+          var parts = departFrom.split('-');
           viewYear = parseInt(parts[0], 10);
           viewMonth = parseInt(parts[1], 10) - 1;
         }
         var maxOrdinal = startYear * 12 + startMonth + 11;
-        var minAllowed = mode === 'return' && selectedDepart ? selectedDepart : toIso(startYear, startMonth, today.getDate());
 
         backdrop = document.createElement('div');
         backdrop.className = 'calendar-modal-backdrop';
@@ -1002,15 +1024,17 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           var firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
           var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
           var ordinal = viewYear * 12 + viewMonth;
-          var avail;
-          if (mode === 'depart') {
-            avail = selectedReturn
-              ? Array.from(new Set(DEAL_DATE_PAIRS.filter(function (p) { return p[1] === selectedReturn; }).map(function (p) { return p[0]; })))
-              : AVAILABLE_DEPART;
+          var todayIso = toIso(startYear, startMonth, today.getDate());
+          var avail = mode === 'depart' ? AVAILABLE_DEPART : AVAILABLE_RETURN;
+          var rangeStart = mode === 'depart' ? departFrom : returnFrom;
+          var rangeEnd = mode === 'depart' ? departTo : returnTo;
+          var minAllowed;
+          if (rangeStart && !rangeEnd) {
+            minAllowed = rangeStart;
+          } else if (mode === 'return' && departFrom) {
+            minAllowed = departFrom > todayIso ? departFrom : todayIso;
           } else {
-            avail = selectedDepart
-              ? Array.from(new Set(DEAL_DATE_PAIRS.filter(function (p) { return p[0] === selectedDepart; }).map(function (p) { return p[1]; })))
-              : AVAILABLE_RETURN;
+            minAllowed = todayIso;
           }
 
           var html = '<div class="calendar-header">'
@@ -1025,13 +1049,17 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           for (var day = 1; day <= daysInMonth; day++) {
             var iso = toIso(viewYear, viewMonth, day);
             var classes = ['calendar-day'];
-            var disabled = iso < minAllowed || avail.indexOf(iso) === -1;
+            var disabled = iso < minAllowed;
             if (disabled) classes.push('disabled');
+            if (!disabled && avail.indexOf(iso) !== -1) classes.push('available');
+            if (iso === rangeStart && !rangeEnd) classes.push('range-start');
             var holidayName = HOLIDAYS[iso];
             if (holidayName) classes.push('holiday');
+            var extraStyle = '';
+            if (holidayName) extraStyle = 'box-shadow: inset 0 0 0 2px ' + holidayColor(holidayName) + ';';
             html += '<button type="button" class="' + classes.join(' ') + '" data-date="' + iso + '"'
               + (disabled ? ' disabled' : '')
-              + (holidayName ? ' style="box-shadow: inset 0 0 0 2px ' + holidayColor(holidayName) + '"' : '')
+              + (extraStyle ? ' style="' + extraStyle + '"' : '')
               + (holidayName ? ' title="' + holidayName + '"' : '')
               + '>' + day + '</button>';
             if (holidayName && run && run.name === holidayName && run.endDay === day - 1) {
@@ -1049,7 +1077,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
               return '<li><span class="dot" style="background:' + holidayColor(h.name) + '"></span>' + range + ': ' + h.name + '</li>';
             }).join('') + '</ul>';
           }
-          html += '<p class="calendar-legend"><span class="dot available"></span>ניתן לבחור (יש דיל תואם) &nbsp; ימים אפורים - אין דיל תואם</p>';
+          html += '<p class="calendar-legend"><span class="dot available"></span>יש בו דיל &nbsp; '
+            + (rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום, או על אישור לבחירת יום בודד' : 'לחץ על יום להתחלת טווח')
+            + '</p>'
+            + '<button type="button" class="date-btn" id="calConfirm"' + (rangeStart ? '' : ' disabled') + ' style="width:100%;margin-top:0.5rem;">אישור</button>';
           modal.innerHTML = html;
 
           var prevBtn = document.getElementById('calPrev');
@@ -1062,24 +1093,40 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
             render();
           });
+          var confirmBtn = document.getElementById('calConfirm');
+          if (confirmBtn) confirmBtn.addEventListener('click', function () {
+            if (!rangeStart) return;
+            if (mode === 'depart') { departTo = departTo || departFrom; } else { returnTo = returnTo || returnFrom; }
+            updateButtons();
+            closeCalendar();
+            navigate();
+          });
           modal.querySelectorAll('.calendar-day[data-date]').forEach(function (btn) {
             btn.addEventListener('click', function () {
               var picked = btn.dataset.date;
               if (mode === 'depart') {
-                selectedDepart = picked;
-                departBtn.textContent = labelOf(picked);
-                if (selectedReturn && selectedReturn < selectedDepart) {
-                  selectedReturn = null;
-                  returnBtn.textContent = 'בחר תאריך חזרה';
+                if (departFrom && !departTo && picked >= departFrom) {
+                  departTo = picked;
+                } else {
+                  departFrom = picked;
+                  departTo = null;
                 }
               } else {
-                selectedReturn = picked;
-                returnBtn.textContent = labelOf(picked);
+                if (returnFrom && !returnTo && picked >= returnFrom) {
+                  returnTo = picked;
+                } else {
+                  returnFrom = picked;
+                  returnTo = null;
+                }
               }
-              var clearLink = document.getElementById('clearDates');
-              if (clearLink) clearLink.style.display = '';
-              closeCalendar();
-              navigateIfReady();
+              updateButtons();
+              var stillPicking = mode === 'depart' ? (departFrom && !departTo) : (returnFrom && !returnTo);
+              if (stillPicking) {
+                render();
+              } else {
+                closeCalendar();
+                navigate();
+              }
             });
           });
         }
@@ -1123,10 +1170,15 @@ export default {
     const minNights = Number.isInteger(minNightsParam) && minNightsParam >= 1 && minNightsParam <= 60 ? minNightsParam : null;
     const maxNightsParam = Number(url.searchParams.get('maxNights'));
     const maxNights = Number.isInteger(maxNightsParam) && maxNightsParam >= 1 && maxNightsParam <= 60 ? maxNightsParam : null;
-    const departDateParam = url.searchParams.get('departDate');
-    const departDate = departDateParam && /^\d{4}-\d{2}-\d{2}$/.test(departDateParam) ? departDateParam : null;
-    const returnDateParam = url.searchParams.get('returnDate');
-    const returnDate = returnDateParam && /^\d{4}-\d{2}-\d{2}$/.test(returnDateParam) ? returnDateParam : null;
-    return renderPage(env, maxPrice, month, country, minNights, maxNights, departDate, returnDate);
+    const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+    const departFromParam = url.searchParams.get('departFrom');
+    const departFrom = departFromParam && isoDate.test(departFromParam) ? departFromParam : null;
+    const departToParam = url.searchParams.get('departTo');
+    const departTo = departToParam && isoDate.test(departToParam) ? departToParam : null;
+    const returnFromParam = url.searchParams.get('returnFrom');
+    const returnFrom = returnFromParam && isoDate.test(returnFromParam) ? returnFromParam : null;
+    const returnToParam = url.searchParams.get('returnTo');
+    const returnTo = returnToParam && isoDate.test(returnToParam) ? returnToParam : null;
+    return renderPage(env, maxPrice, month, country, minNights, maxNights, departFrom, departTo, returnFrom, returnTo);
   },
 };
