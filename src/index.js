@@ -590,11 +590,13 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   .cal-nav { background: none; border: none; color: var(--ink); font-size: 1.2rem; cursor: pointer; padding: 0.2rem 0.6rem; }
   .calendar-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: var(--ink-soft); margin-bottom: 0.3rem; }
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.2rem; }
-  .calendar-day { position: relative; aspect-ratio: 1; border: none; background: var(--toggle-bg); color: var(--ink); border-radius: 8px; cursor: pointer; font: inherit; }
+  .calendar-day { position: relative; aspect-ratio: 1; border: 2px solid transparent; background: var(--toggle-bg); color: var(--ink); border-radius: 8px; cursor: pointer; font: inherit; font-weight: 700; }
+  .calendar-day:not(:disabled):not(.empty) { border-color: #22c55e; }
   .calendar-day:hover:not(:disabled) { background: var(--toggle-hover); }
   .calendar-day.empty { background: none; cursor: default; }
-  .calendar-day:disabled { opacity: 0.3; cursor: not-allowed; }
+  .calendar-day:disabled { opacity: 0.35; cursor: not-allowed; font-weight: 400; }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 0.35rem; flex-shrink: 0; }
+  .dot.available { background: #22c55e; }
   .holiday-list { list-style: none; margin: 0.7rem 0 0; padding: 0; font-size: 0.85rem; }
   .holiday-list li { display: flex; align-items: center; padding: 0.15rem 0; }
   .calendar-legend { font-size: 0.8rem; color: var(--ink-soft); margin: 0.4rem 0 0; }
@@ -1047,7 +1049,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
               return '<li><span class="dot" style="background:' + holidayColor(h.name) + '"></span>' + range + ': ' + h.name + '</li>';
             }).join('') + '</ul>';
           }
-          html += '<p class="calendar-legend">ימים אפורים - אין דיל תואם בתאריך הזה</p>';
+          html += '<p class="calendar-legend"><span class="dot available"></span>ניתן לבחור (יש דיל תואם) &nbsp; ימים אפורים - אין דיל תואם</p>';
           modal.innerHTML = html;
 
           var prevBtn = document.getElementById('calPrev');
