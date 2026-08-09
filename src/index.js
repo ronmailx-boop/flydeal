@@ -351,6 +351,13 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   const availableReturnDates = Array.from(
     new Set(allDeals.filter((d) => d.returnAt).map((d) => d.returnAt.slice(0, 10)))
   );
+  const dealDatePairs = Array.from(
+    new Set(
+      allDeals
+        .filter((d) => d.departureAt && d.returnAt)
+        .map((d) => `${d.departureAt.slice(0, 10)}|${d.returnAt.slice(0, 10)}`)
+    )
+  ).map((s) => s.split('|'));
 
   function ilsLabel(price) {
     if (!usdToIls) return '';
@@ -586,12 +593,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   .calendar-day:hover:not(:disabled) { background: var(--toggle-hover); }
   .calendar-day.empty { background: none; cursor: default; }
   .calendar-day:disabled { opacity: 0.3; cursor: not-allowed; }
-  .calendar-day.has-deals::after { content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: #22c55e; }
   .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 0.35rem; flex-shrink: 0; }
   .holiday-list { list-style: none; margin: 0.7rem 0 0; padding: 0; font-size: 0.85rem; }
   .holiday-list li { display: flex; align-items: center; padding: 0.15rem 0; }
   .calendar-legend { font-size: 0.8rem; color: var(--ink-soft); margin: 0.4rem 0 0; }
-  .calendar-legend .dot.has-deals { background: #22c55e; }
   .error { background:var(--error-bg); border:1px solid var(--error-border); color:var(--error-ink); padding:10px; border-radius:8px; margin-bottom:16px; }
   table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:10px; overflow:hidden; }
   th, td { padding:8px 10px; text-align:right; border-bottom:1px solid var(--border); }
@@ -929,6 +934,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       var HOLIDAYS = ${JSON.stringify(ISRAELI_HOLIDAYS)};
       var AVAILABLE_DEPART = ${JSON.stringify(availableDepartDates)};
       var AVAILABLE_RETURN = ${JSON.stringify(availableReturnDates)};
+      var DEAL_DATE_PAIRS = ${JSON.stringify(dealDatePairs)};
       var selectedDepart = ${departDate ? `'${departDate}'` : 'null'};
       var selectedReturn = ${returnDate ? `'${returnDate}'` : 'null'};
       var weekdayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
@@ -993,7 +999,16 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           var firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
           var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
           var ordinal = viewYear * 12 + viewMonth;
-          var avail = mode === 'depart' ? AVAILABLE_DEPART : AVAILABLE_RETURN;
+          var avail;
+          if (mode === 'depart') {
+            avail = selectedReturn
+              ? Array.from(new Set(DEAL_DATE_PAIRS.filter(function (p) { return p[1] === selectedReturn; }).map(function (p) { return p[0]; })))
+              : AVAILABLE_DEPART;
+          } else {
+            avail = selectedDepart
+              ? Array.from(new Set(DEAL_DATE_PAIRS.filter(function (p) { return p[0] === selectedDepart; }).map(function (p) { return p[1]; })))
+              : AVAILABLE_RETURN;
+          }
 
           var html = '<div class="calendar-header">'
             + '<button type="button" class="cal-nav" id="calPrev"' + (ordinal <= startYear * 12 + startMonth ? ' disabled' : '') + '>&#8594;</button>'
@@ -1007,11 +1022,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           for (var day = 1; day <= daysInMonth; day++) {
             var iso = toIso(viewYear, viewMonth, day);
             var classes = ['calendar-day'];
-            var disabled = iso < minAllowed;
+            var disabled = iso < minAllowed || avail.indexOf(iso) === -1;
             if (disabled) classes.push('disabled');
             var holidayName = HOLIDAYS[iso];
             if (holidayName) classes.push('holiday');
-            if (avail.indexOf(iso) !== -1) classes.push('has-deals');
             html += '<button type="button" class="' + classes.join(' ') + '" data-date="' + iso + '"'
               + (disabled ? ' disabled' : '')
               + (holidayName ? ' style="box-shadow: inset 0 0 0 2px ' + holidayColor(holidayName) + '"' : '')
@@ -1032,7 +1046,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
               return '<li><span class="dot" style="background:' + holidayColor(h.name) + '"></span>' + range + ': ' + h.name + '</li>';
             }).join('') + '</ul>';
           }
-          html += '<p class="calendar-legend"><span class="dot has-deals"></span>יש דילים באותו יום</p>';
+          html += '<p class="calendar-legend">ימים אפורים - אין דיל תואם בתאריך הזה</p>';
           modal.innerHTML = html;
 
           var prevBtn = document.getElementById('calPrev');
