@@ -374,8 +374,9 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
     const departPart = dateRangeLabel(departFrom, departTo, null);
     const returnPart = dateRangeLabel(returnFrom, returnTo, null);
     if (!departPart && !returnPart) return 'בחר תאריכי טיול';
-    if (departPart && returnPart) return `${departPart} ← ${returnPart}`;
-    return departPart || returnPart;
+    if (departPart && returnPart) return `יציאה: <span dir="ltr">${departPart}</span> | חזרה: <span dir="ltr">${returnPart}</span>`;
+    if (departPart) return `יציאה: <span dir="ltr">${departPart}</span>`;
+    return `חזרה: <span dir="ltr">${returnPart}</span>`;
   }
 
   const rows = deals
@@ -1112,7 +1113,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             }).join('') + '</ul>';
           }
           html += '<p class="calendar-legend"><span class="dot available"></span>יש בו דיל &nbsp; '
-            + (rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום (או השאר כך לטווח פתוח)' : 'לחץ על יום להתחלת טווח ' + (mode === 'depart' ? 'היציאה' : 'החזרה'))
+            + (rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום, או חפש עכשיו ליום בודד' : 'לחץ על יום להתחלת טווח ' + (mode === 'depart' ? 'היציאה' : 'החזרה'))
             + '</p>'
             + '<button type="button" class="date-btn" id="calSearch" style="width:100%;margin-top:0.5rem;background:#22c55e;color:#052e12;border-color:#22c55e;">חפש טיסות</button>';
           modal.innerHTML = html;
@@ -1136,6 +1137,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           });
           var searchBtn = document.getElementById('calSearch');
           if (searchBtn) searchBtn.addEventListener('click', function () {
+            if (departFrom && !departTo) departTo = departFrom;
+            if (returnFrom && !returnTo) returnTo = returnFrom;
             closeCalendar();
             updateButton();
             navigate();
