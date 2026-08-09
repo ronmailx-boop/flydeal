@@ -302,7 +302,7 @@ const CARD_ICONS = {
 async function renderPage(env, maxPrice, month, country, minNights, maxNights, departDate, returnDate) {
   const stored = await env.DEALS.get(KV_KEY, 'json');
   const allDeals = (stored && stored.deals) || [];
-  const deals = allDeals
+  const preDateDeals = allDeals
     .filter((d) => d.price <= maxPrice)
     .filter((d) => !month || (d.departureAt && d.departureAt.slice(0, 7) === month))
     .filter((d) => !country || (AIRPORT_INFO[d.destination] && AIRPORT_INFO[d.destination][0] === country))
@@ -313,7 +313,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       if (minNights != null && nights < minNights) return false;
       if (maxNights != null && nights > maxNights) return false;
       return true;
-    })
+    });
+  const deals = preDateDeals
     .filter((d) => !departDate || (d.departureAt && d.departureAt.slice(0, 10) === departDate))
     .filter((d) => !returnDate || (d.returnAt && d.returnAt.slice(0, 10) === returnDate));
   const updatedAt = stored && stored.updatedAt
@@ -346,14 +347,14 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   ).sort((a, b) => a.localeCompare('he'));
 
   const availableDepartDates = Array.from(
-    new Set(allDeals.filter((d) => d.departureAt).map((d) => d.departureAt.slice(0, 10)))
+    new Set(preDateDeals.filter((d) => d.departureAt).map((d) => d.departureAt.slice(0, 10)))
   );
   const availableReturnDates = Array.from(
-    new Set(allDeals.filter((d) => d.returnAt).map((d) => d.returnAt.slice(0, 10)))
+    new Set(preDateDeals.filter((d) => d.returnAt).map((d) => d.returnAt.slice(0, 10)))
   );
   const dealDatePairs = Array.from(
     new Set(
-      allDeals
+      preDateDeals
         .filter((d) => d.departureAt && d.returnAt)
         .map((d) => `${d.departureAt.slice(0, 10)}|${d.returnAt.slice(0, 10)}`)
     )
