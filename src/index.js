@@ -372,6 +372,9 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   }
 
   function dateSummaryLabel(departFrom, departTo, returnFrom, returnTo) {
+    if (departFrom && returnFrom && departFrom === returnFrom && departTo === returnTo && departFrom !== departTo) {
+      return `<span class="date-btn-row">טווח טיול: <span dir="ltr" class="date-btn-val">${formatDate(departFrom)} - ${formatDate(departTo)}</span></span>`;
+    }
     const departPart = dateRangeLabel(departFrom, departTo, null);
     const returnPart = dateRangeLabel(returnFrom, returnTo, null);
     if (!departPart && !returnPart) return 'בחר תאריכי טיול';
@@ -595,33 +598,6 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   .date-btn-row { display: block; }
   .date-btn-val { white-space: nowrap; }
   #clearDates { margin-inline-start: 0.6rem; }
-  .calendar-tabs { display: flex; gap: 0.4rem; margin-bottom: 0.7rem; }
-  .cal-tab {
-    flex: 1;
-    font: inherit;
-    font-size: 0.8rem;
-    color: var(--ink-soft);
-    background: var(--toggle-bg);
-    border: 1px solid var(--toggle-border);
-    border-radius: 999px;
-    padding: 0.4rem 0.5rem;
-    cursor: pointer;
-  }
-  .cal-tab.active { color: var(--ink); border-color: #0ea5e9; font-weight: 700; }
-  .cal-tab.has-selection:not(.active) { border-color: #22c55e; }
-  .mode-switch { display: flex; gap: 0.4rem; margin-bottom: 0.7rem; }
-  .mode-switch button {
-    flex: 1;
-    font: inherit;
-    font-size: 0.78rem;
-    padding: 0.4rem 0.4rem;
-    border-radius: 8px;
-    border: 1px solid var(--toggle-border);
-    background: var(--toggle-bg);
-    color: var(--ink-soft);
-    cursor: pointer;
-  }
-  .mode-switch button.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; font-weight: 700; }
   .calendar-modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5);
     display: flex; align-items: center; justify-content: center;
@@ -638,9 +614,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.2rem; }
   .calendar-day { position: relative; aspect-ratio: 1; border: 2px solid transparent; background: var(--toggle-bg); color: var(--ink); border-radius: 8px; cursor: pointer; font: inherit; font-weight: 700; }
   .calendar-day.available { border-color: #22c55e; }
-  .calendar-day.range-start, .calendar-day.range-end { background: #0ea5e9; color: #fff; }
+  .calendar-day.picked { background: #0ea5e9; color: #fff; }
   .calendar-day.in-range { background: rgba(14, 165, 233, 0.25); }
-  .calendar-day.single-pick { background: #22c55e; color: #052e12; }
   .calendar-day:hover:not(:disabled) { background: var(--toggle-hover); }
   .calendar-day.empty { background: none; cursor: default; }
   .calendar-day:disabled { opacity: 0.35; cursor: not-allowed; font-weight: 400; }
@@ -986,8 +961,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       var departTo = ${departTo ? `'${departTo}'` : 'null'};
       var returnFrom = ${returnFrom ? `'${returnFrom}'` : 'null'};
       var returnTo = ${returnTo ? `'${returnTo}'` : 'null'};
-      var activeTab = 'depart';
-      var modeByTab = { depart: 'range', return: 'range' };
+      var AVAILABLE_ANY = AVAILABLE_DEPART.concat(AVAILABLE_RETURN.filter(function (d) { return AVAILABLE_DEPART.indexOf(d) === -1; }));
       var weekdayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
       var HOLIDAY_COLORS = {
         'ראש השנה': '#f59e0b',
@@ -1009,19 +983,55 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       function pad(n) { return String(n).padStart(2, '0'); }
       function toIso(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
       function labelOf(iso) { return iso.split('-').reverse().join('/'); }
+      function addOneDay(iso) {
+        var p = iso.split('-').map(Number);
+        var d = new Date(p[0], p[1] - 1, p[2] + 1);
+        return toIso(d.getFullYear(), d.getMonth(), d.getDate());
+      }
       function rangeLabel(from, to, placeholder) {
         if (from && to) return from === to ? labelOf(from) : labelOf(from) + ' - ' + labelOf(to);
         if (from) return labelOf(from) + ' - ...';
         return placeholder;
       }
 
+      var pickedDates = [];
+      if (departFrom && departTo && returnFrom && returnTo && departFrom === returnFrom && departTo === returnTo && departFrom !== departTo) {
+        var seedDay = departFrom;
+        while (seedDay <= departTo) { pickedDates.push(seedDay); seedDay = addOneDay(seedDay); }
+      } else if (departFrom && departTo && departFrom === departTo && returnFrom && returnTo && returnFrom === returnTo && departFrom !== returnFrom) {
+        pickedDates = [departFrom, returnFrom].sort();
+      } else if (departFrom && departTo && departFrom === departTo && !returnFrom && !returnTo) {
+        pickedDates = [departFrom];
+      }
+
+      function recomputeFromPicked() {
+        var sorted = pickedDates.slice().sort();
+        if (sorted.length === 0) {
+          departFrom = departTo = returnFrom = returnTo = null;
+        } else if (sorted.length === 1) {
+          departFrom = departTo = sorted[0];
+          returnFrom = returnTo = null;
+        } else if (sorted.length === 2) {
+          departFrom = departTo = sorted[0];
+          returnFrom = returnTo = sorted[1];
+        } else {
+          var min = sorted[0], max = sorted[sorted.length - 1];
+          departFrom = returnFrom = min;
+          departTo = returnTo = max;
+        }
+      }
+
       function updateButton() {
-        var departPart = rangeLabel(departFrom, departTo, null);
-        var returnPart = rangeLabel(returnFrom, returnTo, null);
         var hasDates = !!(departFrom || departTo || returnFrom || returnTo);
         var html = '';
-        if (departPart) html += '<span class="date-btn-row">יציאה: <span dir="ltr" class="date-btn-val">' + departPart + '</span></span>';
-        if (returnPart) html += '<span class="date-btn-row">חזרה: <span dir="ltr" class="date-btn-val">' + returnPart + '</span></span>';
+        if (departFrom && returnFrom && departFrom === returnFrom && departTo === returnTo && departFrom !== departTo) {
+          html = '<span class="date-btn-row">טווח טיול: <span dir="ltr" class="date-btn-val">' + labelOf(departFrom) + ' - ' + labelOf(departTo) + '</span></span>';
+        } else {
+          var departPart = rangeLabel(departFrom, departTo, null);
+          var returnPart = rangeLabel(returnFrom, returnTo, null);
+          if (departPart) html += '<span class="date-btn-row">יציאה: <span dir="ltr" class="date-btn-val">' + departPart + '</span></span>';
+          if (returnPart) html += '<span class="date-btn-row">חזרה: <span dir="ltr" class="date-btn-val">' + returnPart + '</span></span>';
+        }
         dateBtn.innerHTML = html || 'בחר תאריכי טיול';
         dateBtn.classList.toggle('has-dates', hasDates);
         var clearLink = document.getElementById('clearDates');
@@ -1049,18 +1059,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
         var today = new Date();
         var startYear = today.getFullYear(), startMonth = today.getMonth();
         var maxOrdinal = startYear * 12 + startMonth + 11;
-        var viewYear, viewMonth;
-
-        function resetView() {
-          viewYear = startYear;
-          viewMonth = startMonth;
-          if (activeTab === 'return' && departFrom) {
-            var parts = departFrom.split('-');
-            viewYear = parseInt(parts[0], 10);
-            viewMonth = parseInt(parts[1], 10) - 1;
-          }
-        }
-        resetView();
+        var viewYear = startYear, viewMonth = startMonth;
 
         backdrop = document.createElement('div');
         backdrop.className = 'calendar-modal-backdrop';
@@ -1073,34 +1072,16 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
         });
 
         function render() {
-          var mode = activeTab;
-          var pickMode = modeByTab[mode];
           var monthLabel = new Date(viewYear, viewMonth, 1).toLocaleString('he-IL', { month: 'long', year: 'numeric' });
           var firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
           var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
           var ordinal = viewYear * 12 + viewMonth;
           var todayIso = toIso(startYear, startMonth, today.getDate());
-          var avail = mode === 'depart' ? AVAILABLE_DEPART : AVAILABLE_RETURN;
-          var rangeStart = mode === 'depart' ? departFrom : returnFrom;
-          var rangeEnd = mode === 'depart' ? departTo : returnTo;
-          var minAllowed;
-          if (pickMode === 'range' && rangeStart && !rangeEnd) {
-            minAllowed = rangeStart;
-          } else if (mode === 'return' && departFrom) {
-            minAllowed = departFrom > todayIso ? departFrom : todayIso;
-          } else {
-            minAllowed = todayIso;
-          }
+          var sortedPicked = pickedDates.slice().sort();
+          var minPicked = sortedPicked.length ? sortedPicked[0] : null;
+          var maxPicked = sortedPicked.length ? sortedPicked[sortedPicked.length - 1] : null;
 
-          var html = '<div class="calendar-tabs">'
-            + '<button type="button" class="cal-tab' + (activeTab === 'depart' ? ' active' : '') + (departFrom ? ' has-selection' : '') + '" data-tab="depart">יציאה</button>'
-            + '<button type="button" class="cal-tab' + (activeTab === 'return' ? ' active' : '') + (returnFrom ? ' has-selection' : '') + '" data-tab="return">חזרה</button>'
-            + '</div>'
-            + '<div class="mode-switch">'
-            + '<button type="button" class="mode-btn' + (pickMode === 'single' ? ' active' : '') + '" data-mode="single">יום בודד</button>'
-            + '<button type="button" class="mode-btn' + (pickMode === 'range' ? ' active' : '') + '" data-mode="range">טווח תאריכים</button>'
-            + '</div>'
-            + '<div class="calendar-header">'
+          var html = '<div class="calendar-header">'
             + '<button type="button" class="cal-nav" id="calPrev"' + (ordinal <= startYear * 12 + startMonth ? ' disabled' : '') + '>&#8594;</button>'
             + '<span>' + monthLabel + '</span>'
             + '<button type="button" class="cal-nav" id="calNext"' + (ordinal >= maxOrdinal ? ' disabled' : '') + '>&#8592;</button>'
@@ -1112,15 +1093,13 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           for (var day = 1; day <= daysInMonth; day++) {
             var iso = toIso(viewYear, viewMonth, day);
             var classes = ['calendar-day'];
-            var disabled = iso < minAllowed;
+            var disabled = iso < todayIso;
             if (disabled) classes.push('disabled');
-            if (!disabled && avail.indexOf(iso) !== -1) classes.push('available');
-            if (pickMode === 'single') {
-              if (iso === rangeStart && !rangeEnd) classes.push('single-pick');
-            } else {
-              if (rangeStart && rangeEnd && iso > rangeStart && iso < rangeEnd) classes.push('in-range');
-              if (iso === rangeStart) classes.push('range-start');
-              if (rangeEnd && iso === rangeEnd && rangeEnd !== rangeStart) classes.push('range-end');
+            if (!disabled && AVAILABLE_ANY.indexOf(iso) !== -1) classes.push('available');
+            if (sortedPicked.indexOf(iso) !== -1) {
+              classes.push('picked');
+            } else if (sortedPicked.length >= 3 && iso > minPicked && iso < maxPicked) {
+              classes.push('in-range');
             }
             var holidayName = HOLIDAYS[iso];
             if (holidayName) classes.push('holiday');
@@ -1147,33 +1126,16 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             }).join('') + '</ul>';
           }
           var legendText;
-          if (pickMode === 'single') {
-            legendText = 'לחץ על יום לבחירה מדויקת של ' + (mode === 'depart' ? 'תאריך היציאה' : 'תאריך החזרה');
-          } else {
-            legendText = rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום לטווח' : 'לחץ על יום להתחלת טווח ' + (mode === 'depart' ? 'היציאה' : 'החזרה');
-          }
+          if (sortedPicked.length === 0) legendText = 'לחץ על תאריך כדי להתחיל';
+          else if (sortedPicked.length === 1) legendText = 'נבחר תאריך אחד - לחץ על תאריך נוסף לחזרה מדויקת, או המשך לבחור ימים נוספים לטווח כללי';
+          else if (sortedPicked.length === 2) legendText = 'נבחרו 2 תאריכים - ייחשבו כיציאה וחזרה מדויקות. אפשר להמשיך ללחוץ לטווח רחב יותר';
+          else legendText = 'נבחר טווח כללי - יוצגו טיסות שגם היציאה וגם החזרה נופלות בטווח';
           html += '<p class="calendar-legend"><span class="dot available"></span>יש בו דיל &nbsp; '
             + legendText
             + '</p>'
             + '<button type="button" class="date-btn" id="calSearch" style="width:100%;margin-top:0.5rem;background:#22c55e;color:#052e12;border-color:#22c55e;">חפש טיסות</button>';
           modal.innerHTML = html;
 
-          modal.querySelectorAll('.cal-tab').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-              activeTab = btn.dataset.tab;
-              resetView();
-              render();
-            });
-          });
-          modal.querySelectorAll('.mode-btn').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-              modeByTab[activeTab] = btn.dataset.mode;
-              if (activeTab === 'depart') { departFrom = null; departTo = null; }
-              else { returnFrom = null; returnTo = null; }
-              updateButton();
-              render();
-            });
-          });
           var prevBtn = document.getElementById('calPrev');
           var nextBtn = document.getElementById('calNext');
           if (prevBtn) prevBtn.addEventListener('click', function () {
@@ -1186,33 +1148,17 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           });
           var searchBtn = document.getElementById('calSearch');
           if (searchBtn) searchBtn.addEventListener('click', function () {
-            if (departFrom && !departTo) departTo = departFrom;
-            if (returnFrom && !returnTo) returnTo = returnFrom;
             closeCalendar();
             updateButton();
             navigate();
           });
           modal.querySelectorAll('.calendar-day[data-date]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-              var picked = btn.dataset.date;
-              if (pickMode === 'single') {
-                if (mode === 'depart') { departFrom = picked; departTo = picked; }
-                else { returnFrom = picked; returnTo = picked; }
-              } else if (mode === 'depart') {
-                if (departFrom && !departTo && picked >= departFrom) {
-                  departTo = picked;
-                } else {
-                  departFrom = picked;
-                  departTo = null;
-                }
-              } else {
-                if (returnFrom && !returnTo && picked >= returnFrom) {
-                  returnTo = picked;
-                } else {
-                  returnFrom = picked;
-                  returnTo = null;
-                }
-              }
+              var iso = btn.dataset.date;
+              var idx = pickedDates.indexOf(iso);
+              if (idx !== -1) pickedDates.splice(idx, 1);
+              else pickedDates.push(iso);
+              recomputeFromPicked();
               updateButton();
               render();
             });
