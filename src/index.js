@@ -370,6 +370,14 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
     return placeholder;
   }
 
+  function dateSummaryLabel(departFrom, departTo, returnFrom, returnTo) {
+    const departPart = dateRangeLabel(departFrom, departTo, null);
+    const returnPart = dateRangeLabel(returnFrom, returnTo, null);
+    if (!departPart && !returnPart) return 'בחר תאריכי טיול';
+    if (departPart && returnPart) return `${departPart} ← ${returnPart}`;
+    return departPart || returnPart;
+  }
+
   const rows = deals
     .map((d) => {
       const hotelLink = buildHotelSearchLink(d.destination, d.departureAt, d.returnAt);
@@ -569,7 +577,6 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
     padding: 0.3rem 0.9rem;
     margin-inline-start: 0.4rem;
   }
-  .date-buttons { display: inline-flex; flex-direction: column; align-items: center; gap: 0.4rem; margin-inline-start: 0.4rem; vertical-align: middle; }
   .date-btn {
     font: inherit;
     color: var(--ink);
@@ -577,10 +584,24 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
     border: 1px solid var(--toggle-border);
     border-radius: 999px;
     padding: 0.3rem 0.9rem;
+    margin-inline-start: 0.4rem;
     cursor: pointer;
   }
   .date-btn:hover { background: var(--toggle-hover); }
   #clearDates { margin-inline-start: 0.6rem; }
+  .calendar-tabs { display: flex; gap: 0.4rem; margin-bottom: 0.7rem; }
+  .cal-tab {
+    flex: 1;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    background: var(--toggle-bg);
+    border: 1px solid var(--toggle-border);
+    border-radius: 999px;
+    padding: 0.4rem 0.5rem;
+    cursor: pointer;
+  }
+  .cal-tab.active { color: var(--ink); border-color: #0ea5e9; font-weight: 700; }
   .calendar-modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5);
     display: flex; align-items: center; justify-content: center;
@@ -780,10 +801,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   </p>
   <p class="presets">
     תאריכים:
-    <span class="date-buttons">
-      <button type="button" id="departDateBtn" class="date-btn">${dateRangeLabel(departFrom, departTo, 'בחר טווח יציאה')}</button>
-      <button type="button" id="returnDateBtn" class="date-btn">${dateRangeLabel(returnFrom, returnTo, 'בחר טווח חזרה')}</button>
-    </span>
+    <button type="button" id="dateRangeBtn" class="date-btn">${dateSummaryLabel(departFrom, departTo, returnFrom, returnTo)}</button>
     <a href="/?max=${maxPrice}${countryQS}" id="clearDates"${departFrom || departTo || returnFrom || returnTo ? '' : ' style="display:none"'}>נקה תאריכים</a>
   </p>
   <p class="passengers">
@@ -934,9 +952,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       }
     })();
     (function () {
-      var departBtn = document.getElementById('departDateBtn');
-      var returnBtn = document.getElementById('returnDateBtn');
-      if (!departBtn || !returnBtn) return;
+      var dateBtn = document.getElementById('dateRangeBtn');
+      if (!dateBtn) return;
 
       var MAX_PRICE = ${maxPrice};
       var COUNTRY_QS = '${countryQS}';
@@ -947,6 +964,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       var departTo = ${departTo ? `'${departTo}'` : 'null'};
       var returnFrom = ${returnFrom ? `'${returnFrom}'` : 'null'};
       var returnTo = ${returnTo ? `'${returnTo}'` : 'null'};
+      var activeTab = 'depart';
       var weekdayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
       var HOLIDAY_COLORS = {
         'ראש השנה': '#f59e0b',
@@ -974,9 +992,12 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
         return placeholder;
       }
 
-      function updateButtons() {
-        departBtn.textContent = rangeLabel(departFrom, departTo, 'בחר טווח יציאה');
-        returnBtn.textContent = rangeLabel(returnFrom, returnTo, 'בחר טווח חזרה');
+      function updateButton() {
+        var departPart = rangeLabel(departFrom, departTo, null);
+        var returnPart = rangeLabel(returnFrom, returnTo, null);
+        dateBtn.textContent = (departPart || returnPart)
+          ? (departPart || 'לא נבחר') + ' ← ' + (returnPart || 'לא נבחר')
+          : 'בחר תאריכי טיול';
         var clearLink = document.getElementById('clearDates');
         if (clearLink) clearLink.style.display = (departFrom || departTo || returnFrom || returnTo) ? '' : 'none';
       }
@@ -998,16 +1019,22 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
         backdrop = null;
       }
 
-      function openCalendar(mode) {
+      function openCalendar() {
         var today = new Date();
         var startYear = today.getFullYear(), startMonth = today.getMonth();
-        var viewYear = startYear, viewMonth = startMonth;
-        if (mode === 'return' && departFrom) {
-          var parts = departFrom.split('-');
-          viewYear = parseInt(parts[0], 10);
-          viewMonth = parseInt(parts[1], 10) - 1;
-        }
         var maxOrdinal = startYear * 12 + startMonth + 11;
+        var viewYear, viewMonth;
+
+        function resetView() {
+          viewYear = startYear;
+          viewMonth = startMonth;
+          if (activeTab === 'return' && departFrom) {
+            var parts = departFrom.split('-');
+            viewYear = parseInt(parts[0], 10);
+            viewMonth = parseInt(parts[1], 10) - 1;
+          }
+        }
+        resetView();
 
         backdrop = document.createElement('div');
         backdrop.className = 'calendar-modal-backdrop';
@@ -1020,6 +1047,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
         });
 
         function render() {
+          var mode = activeTab;
           var monthLabel = new Date(viewYear, viewMonth, 1).toLocaleString('he-IL', { month: 'long', year: 'numeric' });
           var firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
           var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -1037,7 +1065,11 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             minAllowed = todayIso;
           }
 
-          var html = '<div class="calendar-header">'
+          var html = '<div class="calendar-tabs">'
+            + '<button type="button" class="cal-tab' + (activeTab === 'depart' ? ' active' : '') + '" data-tab="depart">יציאה' + (departFrom ? ' (' + rangeLabel(departFrom, departTo, '') + ')' : '') + '</button>'
+            + '<button type="button" class="cal-tab' + (activeTab === 'return' ? ' active' : '') + '" data-tab="return">חזרה' + (returnFrom ? ' (' + rangeLabel(returnFrom, returnTo, '') + ')' : '') + '</button>'
+            + '</div>'
+            + '<div class="calendar-header">'
             + '<button type="button" class="cal-nav" id="calPrev"' + (ordinal <= startYear * 12 + startMonth ? ' disabled' : '') + '>&#8594;</button>'
             + '<span>' + monthLabel + '</span>'
             + '<button type="button" class="cal-nav" id="calNext"' + (ordinal >= maxOrdinal ? ' disabled' : '') + '>&#8592;</button>'
@@ -1078,11 +1110,18 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             }).join('') + '</ul>';
           }
           html += '<p class="calendar-legend"><span class="dot available"></span>יש בו דיל &nbsp; '
-            + (rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום, או על אישור לבחירת יום בודד' : 'לחץ על יום להתחלת טווח')
+            + (rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום (או השאר כך לטווח פתוח)' : 'לחץ על יום להתחלת טווח ' + (mode === 'depart' ? 'היציאה' : 'החזרה'))
             + '</p>'
-            + '<button type="button" class="date-btn" id="calConfirm"' + (rangeStart ? '' : ' disabled') + ' style="width:100%;margin-top:0.5rem;">אישור</button>';
+            + '<button type="button" class="date-btn" id="calSearch" style="width:100%;margin-top:0.5rem;background:#22c55e;color:#052e12;border-color:#22c55e;">חפש טיסות</button>';
           modal.innerHTML = html;
 
+          modal.querySelectorAll('.cal-tab').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              activeTab = btn.dataset.tab;
+              resetView();
+              render();
+            });
+          });
           var prevBtn = document.getElementById('calPrev');
           var nextBtn = document.getElementById('calNext');
           if (prevBtn) prevBtn.addEventListener('click', function () {
@@ -1093,12 +1132,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
             render();
           });
-          var confirmBtn = document.getElementById('calConfirm');
-          if (confirmBtn) confirmBtn.addEventListener('click', function () {
-            if (!rangeStart) return;
-            if (mode === 'depart') { departTo = departTo || departFrom; } else { returnTo = returnTo || returnFrom; }
-            updateButtons();
+          var searchBtn = document.getElementById('calSearch');
+          if (searchBtn) searchBtn.addEventListener('click', function () {
             closeCalendar();
+            updateButton();
             navigate();
           });
           modal.querySelectorAll('.calendar-day[data-date]').forEach(function (btn) {
@@ -1119,22 +1156,15 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
                   returnTo = null;
                 }
               }
-              updateButtons();
-              var stillPicking = mode === 'depart' ? (departFrom && !departTo) : (returnFrom && !returnTo);
-              if (stillPicking) {
-                render();
-              } else {
-                closeCalendar();
-                navigate();
-              }
+              updateButton();
+              render();
             });
           });
         }
         render();
       }
 
-      departBtn.addEventListener('click', function () { openCalendar('depart'); });
-      returnBtn.addEventListener('click', function () { openCalendar('return'); });
+      dateBtn.addEventListener('click', openCalendar);
     })();
   </script>
 </body>
