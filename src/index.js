@@ -556,6 +556,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
     padding: 0.3rem 0.9rem;
     margin-inline-start: 0.4rem;
   }
+  .date-buttons { display: inline-flex; flex-direction: column; align-items: center; gap: 0.4rem; margin-inline-start: 0.4rem; vertical-align: middle; }
   .date-btn {
     font: inherit;
     color: var(--ink);
@@ -563,7 +564,6 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
     border: 1px solid var(--toggle-border);
     border-radius: 999px;
     padding: 0.3rem 0.9rem;
-    margin-inline-start: 0.4rem;
     cursor: pointer;
   }
   .date-btn:hover { background: var(--toggle-hover); }
@@ -766,8 +766,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   </p>
   <p class="presets">
     תאריכים:
-    <button type="button" id="departDateBtn" class="date-btn">${departDate ? formatDate(departDate) : 'בחר תאריך יציאה'}</button>
-    <button type="button" id="returnDateBtn" class="date-btn">${returnDate ? formatDate(returnDate) : 'בחר תאריך חזרה'}</button>
+    <span class="date-buttons">
+      <button type="button" id="departDateBtn" class="date-btn">${departDate ? formatDate(departDate) : 'בחר תאריך יציאה'}</button>
+      <button type="button" id="returnDateBtn" class="date-btn">${returnDate ? formatDate(returnDate) : 'בחר תאריך חזרה'}</button>
+    </span>
     ${departDate || returnDate ? `<a href="/?max=${maxPrice}${countryQS}" id="clearDates">נקה תאריכים</a>` : ''}
   </p>
   <p class="passengers">
