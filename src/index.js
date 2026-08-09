@@ -364,6 +364,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   }
 
   function dateRangeLabel(from, to, placeholder) {
+    if (from && to && from === to) return formatDate(from);
     if (from && to) return `${formatDate(from)} - ${formatDate(to)}`;
     if (from) return `${formatDate(from)} - ...`;
     if (to) return `... - ${formatDate(to)}`;
@@ -994,7 +995,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       function toIso(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
       function labelOf(iso) { return iso.split('-').reverse().join('/'); }
       function rangeLabel(from, to, placeholder) {
-        if (from && to) return labelOf(from) + ' - ' + labelOf(to);
+        if (from && to) return from === to ? labelOf(from) : labelOf(from) + ' - ' + labelOf(to);
         if (from) return labelOf(from) + ' - ...';
         return placeholder;
       }
