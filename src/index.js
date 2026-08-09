@@ -778,7 +778,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       <button type="button" id="departDateBtn" class="date-btn">${departDate ? formatDate(departDate) : 'בחר תאריך יציאה'}</button>
       <button type="button" id="returnDateBtn" class="date-btn">${returnDate ? formatDate(returnDate) : 'בחר תאריך חזרה'}</button>
     </span>
-    ${departDate || returnDate ? `<a href="/?max=${maxPrice}${countryQS}" id="clearDates">נקה תאריכים</a>` : ''}
+    <a href="/?max=${maxPrice}${countryQS}" id="clearDates"${departDate || returnDate ? '' : ' style="display:none"'}>נקה תאריכים</a>
   </p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
@@ -1076,6 +1076,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
                 selectedReturn = picked;
                 returnBtn.textContent = labelOf(picked);
               }
+              var clearLink = document.getElementById('clearDates');
+              if (clearLink) clearLink.style.display = '';
               closeCalendar();
               navigateIfReady();
             });
