@@ -801,8 +801,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   </p>
   <p class="presets">
     תאריכים:
-    <button type="button" id="dateRangeBtn" class="date-btn">${dateSummaryLabel(departFrom, departTo, returnFrom, returnTo)}</button>
-    <a href="/?max=${maxPrice}${countryQS}" id="clearDates"${departFrom || departTo || returnFrom || returnTo ? '' : ' style="display:none"'}>נקה תאריכים</a>
+    <button type="button" id="dateRangeBtn" class="date-btn"${departFrom || departTo || returnFrom || returnTo ? ' dir="ltr"' : ''}>${dateSummaryLabel(departFrom, departTo, returnFrom, returnTo)}</button>
+    <a href="/?max=${maxPrice}${countryQS}" id="clearDates"${departFrom || departTo || returnFrom || returnTo ? '' : ' style="display:none"'}>נקה</a>
   </p>
   <p class="passengers">
     <button type="button" id="paxMinus" class="step-btn" aria-label="הפחת נוסע">&minus;</button>
@@ -995,11 +995,13 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       function updateButton() {
         var departPart = rangeLabel(departFrom, departTo, null);
         var returnPart = rangeLabel(returnFrom, returnTo, null);
+        var hasDates = !!(departFrom || departTo || returnFrom || returnTo);
         dateBtn.textContent = (departPart || returnPart)
           ? (departPart || 'לא נבחר') + ' ← ' + (returnPart || 'לא נבחר')
           : 'בחר תאריכי טיול';
+        dateBtn.dir = hasDates ? 'ltr' : 'rtl';
         var clearLink = document.getElementById('clearDates');
-        if (clearLink) clearLink.style.display = (departFrom || departTo || returnFrom || returnTo) ? '' : 'none';
+        if (clearLink) clearLink.style.display = hasDates ? '' : 'none';
       }
 
       function currentDatesQS() {
@@ -1066,8 +1068,8 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           }
 
           var html = '<div class="calendar-tabs">'
-            + '<button type="button" class="cal-tab' + (activeTab === 'depart' ? ' active' : '') + '" data-tab="depart">יציאה' + (departFrom ? ' (' + rangeLabel(departFrom, departTo, '') + ')' : '') + '</button>'
-            + '<button type="button" class="cal-tab' + (activeTab === 'return' ? ' active' : '') + '" data-tab="return">חזרה' + (returnFrom ? ' (' + rangeLabel(returnFrom, returnTo, '') + ')' : '') + '</button>'
+            + '<button type="button" class="cal-tab' + (activeTab === 'depart' ? ' active' : '') + '" data-tab="depart">יציאה' + (departFrom ? ' (<span dir="ltr">' + rangeLabel(departFrom, departTo, '') + '</span>)' : '') + '</button>'
+            + '<button type="button" class="cal-tab' + (activeTab === 'return' ? ' active' : '') + '" data-tab="return">חזרה' + (returnFrom ? ' (<span dir="ltr">' + rangeLabel(returnFrom, returnTo, '') + '</span>)' : '') + '</button>'
             + '</div>'
             + '<div class="calendar-header">'
             + '<button type="button" class="cal-nav" id="calPrev"' + (ordinal <= startYear * 12 + startMonth ? ' disabled' : '') + '>&#8594;</button>'
