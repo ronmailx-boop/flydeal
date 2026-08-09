@@ -609,6 +609,19 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   }
   .cal-tab.active { color: var(--ink); border-color: #0ea5e9; font-weight: 700; }
   .cal-tab.has-selection:not(.active) { border-color: #22c55e; }
+  .mode-switch { display: flex; gap: 0.4rem; margin-bottom: 0.7rem; }
+  .mode-switch button {
+    flex: 1;
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 0.4rem 0.4rem;
+    border-radius: 8px;
+    border: 1px solid var(--toggle-border);
+    background: var(--toggle-bg);
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .mode-switch button.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; font-weight: 700; }
   .calendar-modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.5);
     display: flex; align-items: center; justify-content: center;
@@ -627,6 +640,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   .calendar-day.available { border-color: #22c55e; }
   .calendar-day.range-start, .calendar-day.range-end { background: #0ea5e9; color: #fff; }
   .calendar-day.in-range { background: rgba(14, 165, 233, 0.25); }
+  .calendar-day.single-pick { background: #22c55e; color: #052e12; }
   .calendar-day:hover:not(:disabled) { background: var(--toggle-hover); }
   .calendar-day.empty { background: none; cursor: default; }
   .calendar-day:disabled { opacity: 0.35; cursor: not-allowed; font-weight: 400; }
@@ -973,6 +987,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       var returnFrom = ${returnFrom ? `'${returnFrom}'` : 'null'};
       var returnTo = ${returnTo ? `'${returnTo}'` : 'null'};
       var activeTab = 'depart';
+      var modeByTab = { depart: 'range', return: 'range' };
       var weekdayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
       var HOLIDAY_COLORS = {
         'ראש השנה': '#f59e0b',
@@ -1059,6 +1074,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
 
         function render() {
           var mode = activeTab;
+          var pickMode = modeByTab[mode];
           var monthLabel = new Date(viewYear, viewMonth, 1).toLocaleString('he-IL', { month: 'long', year: 'numeric' });
           var firstWeekday = new Date(viewYear, viewMonth, 1).getDay();
           var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
@@ -1068,7 +1084,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           var rangeStart = mode === 'depart' ? departFrom : returnFrom;
           var rangeEnd = mode === 'depart' ? departTo : returnTo;
           var minAllowed;
-          if (rangeStart && !rangeEnd) {
+          if (pickMode === 'range' && rangeStart && !rangeEnd) {
             minAllowed = rangeStart;
           } else if (mode === 'return' && departFrom) {
             minAllowed = departFrom > todayIso ? departFrom : todayIso;
@@ -1079,6 +1095,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           var html = '<div class="calendar-tabs">'
             + '<button type="button" class="cal-tab' + (activeTab === 'depart' ? ' active' : '') + (departFrom ? ' has-selection' : '') + '" data-tab="depart">יציאה</button>'
             + '<button type="button" class="cal-tab' + (activeTab === 'return' ? ' active' : '') + (returnFrom ? ' has-selection' : '') + '" data-tab="return">חזרה</button>'
+            + '</div>'
+            + '<div class="mode-switch">'
+            + '<button type="button" class="mode-btn' + (pickMode === 'single' ? ' active' : '') + '" data-mode="single">יום בודד</button>'
+            + '<button type="button" class="mode-btn' + (pickMode === 'range' ? ' active' : '') + '" data-mode="range">טווח תאריכים</button>'
             + '</div>'
             + '<div class="calendar-header">'
             + '<button type="button" class="cal-nav" id="calPrev"' + (ordinal <= startYear * 12 + startMonth ? ' disabled' : '') + '>&#8594;</button>'
@@ -1095,9 +1115,13 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             var disabled = iso < minAllowed;
             if (disabled) classes.push('disabled');
             if (!disabled && avail.indexOf(iso) !== -1) classes.push('available');
-            if (rangeStart && rangeEnd && iso > rangeStart && iso < rangeEnd) classes.push('in-range');
-            if (iso === rangeStart) classes.push('range-start');
-            if (rangeEnd && iso === rangeEnd && rangeEnd !== rangeStart) classes.push('range-end');
+            if (pickMode === 'single') {
+              if (iso === rangeStart && !rangeEnd) classes.push('single-pick');
+            } else {
+              if (rangeStart && rangeEnd && iso > rangeStart && iso < rangeEnd) classes.push('in-range');
+              if (iso === rangeStart) classes.push('range-start');
+              if (rangeEnd && iso === rangeEnd && rangeEnd !== rangeStart) classes.push('range-end');
+            }
             var holidayName = HOLIDAYS[iso];
             if (holidayName) classes.push('holiday');
             var extraStyle = '';
@@ -1122,8 +1146,14 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
               return '<li><span class="dot" style="background:' + holidayColor(h.name) + '"></span>' + range + ': ' + h.name + '</li>';
             }).join('') + '</ul>';
           }
+          var legendText;
+          if (pickMode === 'single') {
+            legendText = 'לחץ על יום לבחירה מדויקת של ' + (mode === 'depart' ? 'תאריך היציאה' : 'תאריך החזרה');
+          } else {
+            legendText = rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום לטווח' : 'לחץ על יום להתחלת טווח ' + (mode === 'depart' ? 'היציאה' : 'החזרה');
+          }
           html += '<p class="calendar-legend"><span class="dot available"></span>יש בו דיל &nbsp; '
-            + (rangeStart && !rangeEnd ? 'תאריך התחלה נבחר - לחץ על תאריך סיום, או חפש עכשיו ליום בודד' : 'לחץ על יום להתחלת טווח ' + (mode === 'depart' ? 'היציאה' : 'החזרה'))
+            + legendText
             + '</p>'
             + '<button type="button" class="date-btn" id="calSearch" style="width:100%;margin-top:0.5rem;background:#22c55e;color:#052e12;border-color:#22c55e;">חפש טיסות</button>';
           modal.innerHTML = html;
@@ -1132,6 +1162,15 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             btn.addEventListener('click', function () {
               activeTab = btn.dataset.tab;
               resetView();
+              render();
+            });
+          });
+          modal.querySelectorAll('.mode-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              modeByTab[activeTab] = btn.dataset.mode;
+              if (activeTab === 'depart') { departFrom = null; departTo = null; }
+              else { returnFrom = null; returnTo = null; }
+              updateButton();
               render();
             });
           });
@@ -1156,7 +1195,10 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           modal.querySelectorAll('.calendar-day[data-date]').forEach(function (btn) {
             btn.addEventListener('click', function () {
               var picked = btn.dataset.date;
-              if (mode === 'depart') {
+              if (pickMode === 'single') {
+                if (mode === 'depart') { departFrom = picked; departTo = picked; }
+                else { returnFrom = picked; returnTo = picked; }
+              } else if (mode === 'depart') {
                 if (departFrom && !departTo && picked >= departFrom) {
                   departTo = picked;
                 } else {
