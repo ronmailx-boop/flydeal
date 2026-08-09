@@ -586,13 +586,11 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
   .calendar-day:hover:not(:disabled) { background: var(--toggle-hover); }
   .calendar-day.empty { background: none; cursor: default; }
   .calendar-day:disabled { opacity: 0.3; cursor: not-allowed; }
-  .calendar-day.holiday { box-shadow: inset 0 0 0 2px #f59e0b; }
   .calendar-day.has-deals::after { content: ''; position: absolute; bottom: 3px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background: #22c55e; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 0.35rem; flex-shrink: 0; }
   .holiday-list { list-style: none; margin: 0.7rem 0 0; padding: 0; font-size: 0.85rem; }
   .holiday-list li { display: flex; align-items: center; padding: 0.15rem 0; }
   .calendar-legend { font-size: 0.8rem; color: var(--ink-soft); margin: 0.4rem 0 0; }
-  .calendar-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 0.2rem; }
-  .calendar-legend .dot.holiday { box-shadow: inset 0 0 0 2px #f59e0b; }
   .calendar-legend .dot.has-deals { background: #22c55e; }
   .error { background:var(--error-bg); border:1px solid var(--error-border); color:var(--error-ink); padding:10px; border-radius:8px; margin-bottom:16px; }
   table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:10px; overflow:hidden; }
@@ -932,6 +930,22 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
       var selectedDepart = ${departDate ? `'${departDate}'` : 'null'};
       var selectedReturn = ${returnDate ? `'${returnDate}'` : 'null'};
       var weekdayNames = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+      var HOLIDAY_COLORS = {
+        'ראש השנה': '#f59e0b',
+        'יום כיפור': '#ef4444',
+        'סוכות': '#a855f7',
+        'שמחת תורה': '#ec4899',
+        'חנוכה': '#3b82f6',
+        'ט"ו בשבט': '#84cc16',
+        'פורים': '#eab308',
+        'פסח': '#06b6d4',
+        'יום הזיכרון': '#64748b',
+        'יום העצמאות': '#0ea5e9',
+        'ל"ג בעומר': '#f97316',
+        'שבועות': '#14b8a6',
+        'תשעה באב': '#78716c',
+      };
+      function holidayColor(name) { return HOLIDAY_COLORS[name] || '#f59e0b'; }
 
       function pad(n) { return String(n).padStart(2, '0'); }
       function toIso(y, m, d) { return y + '-' + pad(m + 1) + '-' + pad(d); }
@@ -998,6 +1012,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
             if (avail.indexOf(iso) !== -1) classes.push('has-deals');
             html += '<button type="button" class="' + classes.join(' ') + '" data-date="' + iso + '"'
               + (disabled ? ' disabled' : '')
+              + (holidayName ? ' style="box-shadow: inset 0 0 0 2px ' + holidayColor(holidayName) + '"' : '')
               + (holidayName ? ' title="' + holidayName + '"' : '')
               + '>' + day + '</button>';
             if (holidayName && run && run.name === holidayName && run.endDay === day - 1) {
@@ -1012,7 +1027,7 @@ async function renderPage(env, maxPrice, month, country, minNights, maxNights, d
           if (monthHolidays.length) {
             html += '<ul class="holiday-list">' + monthHolidays.map(function (h) {
               var range = h.startDay === h.endDay ? h.startDay : h.startDay + '-' + h.endDay;
-              return '<li><span class="dot holiday"></span>' + range + ': ' + h.name + '</li>';
+              return '<li><span class="dot" style="background:' + holidayColor(h.name) + '"></span>' + range + ': ' + h.name + '</li>';
             }).join('') + '</ul>';
           }
           html += '<p class="calendar-legend"><span class="dot has-deals"></span>יש דילים באותו יום</p>';
