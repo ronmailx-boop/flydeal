@@ -30,7 +30,7 @@ const MANIFEST = JSON.stringify({
 const TRAVELPAYOUTS_URL = 'https://api.travelpayouts.com/v1/prices/cheap';
 const FX_URL = 'https://api.frankfurter.app/latest?from=USD&to=ILS';
 const ORIGIN = 'TLV';
-const DEFAULT_MAX_PRICE = 100;
+const DEFAULT_MAX_PRICE = 500;
 const PRICE_PRESETS = [50, 100, 150, 200, 300, 400, 500];
 const KV_KEY = 'latest';
 
